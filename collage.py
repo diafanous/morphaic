@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 
 import pymupdf
 import shapes
+import effects
 from pillow_heif import register_heif_opener
 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
@@ -32,13 +33,13 @@ IDENT = list(range(256))
 SPEC = dict(
     cw=(0.05, 1, 0.25), ch=(0.05, 1, 0.25),                   # section size, fraction of source
     ps=(0.1, 1, 1), pn=(1, 6, 2),                             # portion of each file used (1 = all of it), portions per file
-    scale=(0.1, 4, 1), var=(0, 0.9, 0.25), rot=(0, 180, 12),  # section scale, scale spread, max rotation (deg)
-    scatter=(0, 1, 0.35), density=(0.1, 1, 1),                # drift from home spot, share of sections used
+    scale=(0.1, 4, 1), var=(0, 0.9, 0), rot=(0, 180, 0),     # section scale, scale spread, max rotation (deg)
+    scatter=(0, 1, 0), density=(0.1, 1, 1),                   # drift from home spot, share of sections used
     gn=(2, 24, 8), gs=(0, 1, 0), gi=(0, 1, 0),                # guide grid: nodes across, pull to nearest node, node jitter
-    draw=(0, 1, 0.7), blur=(0, 1, 0),                         # pull toward drawn strokes, edge softness
+    draw=(0, 1, 0), blur=(0, 1, 0),                           # pull toward drawn strokes, edge softness
     con=(-1, 1, 0), lb=(0, 254, 0), lw=(1, 255, 255), lg=(0.2, 5, 1),   # contrast, levels black / white / gamma
-    layers=(1, 16, 2), opacity=(0.05, 1, 1), seed=(0, 9999, 1),
-    w=(0.25, 200, 8.5), h=(0.25, 200, 11), dpi=(10, 1200, 300), pv=(200, 3000, 1000),  # canvas in, dpi, preview px
+    layers=(1, 16, 1), opacity=(0.05, 1, 1), seed=(0, 9999, 1),
+    w=(0.001, 200, 8.5), h=(0.001, 200, 11), dpi=(10, 1200, 300), pv=(200, 3000, 1000),  # canvas in, dpi, preview px
     m1o=(0, 1, 0.8), m2o=(0, 1, 0.8), m3o=(0, 1, 1),          # migration map: line opacity per layer
     m1a=(0, 1, 1), m2a=(0, 1, 0), m3a=(0, 1, 0),              # migration map: paper opacity per layer (0 = no paper)
     smoothness=(4, 24, 12), pace=(3, 30, 12),
@@ -49,7 +50,8 @@ COLORS = dict(bg="#f4f2ee", m1c="#8a8a90", m2c="#ff5a36", m3c="#18181b",   # can
 
 
 def clean(raw):
-    p = {k: min(max(float(raw.get(k, d)), lo), hi) for k, (lo, hi, d) in SPEC.items()}
+    p = {k: effects.number(raw.get(k, d), lo, hi, d) for k, (lo, hi, d) in SPEC.items()}
+    p.update(effects.clean(raw))
     for k, d in COLORS.items():
         v = str(raw.get(k, ""))
         p[k] = v if re.fullmatch(r"#[0-9a-fA-F]{6}", v) else d
@@ -224,12 +226,23 @@ def _batches(pieces, ppi, budget=60e6):
         yield batch
 
 
-def render(p, items, ppi, resample, pieces=None):
+def render(p, items, ppi, resample, pieces=None, grain_texture=None):
     """items: [(PIL image, width_in, height_in)] -> RGB canvas of p.w x p.h inches at ppi."""
     W, H = p["w"], p["h"]
-    cw, ch = round(W * ppi), round(H * ppi)
+    cw, ch = max(1, round(W * ppi)), max(1, round(H * ppi))
     canvas = Image.new("RGB", (cw, ch), p["bg"])
     spin = Image.BICUBIC if resample == Image.LANCZOS else Image.BILINEAR
+
+    # Unedited imports are one continuous image. Resampling fractional cut
+    # boxes independently softens odd-size images and can introduce seams.
+    neutral = (len(items) == 1 and p['scale'] == p['density'] == p['layers'] == p['opacity'] == p['ps'] == 1
+               and p['var'] == p['rot'] == p['scatter'] == p['blur'] == p['gs'] == 0
+               and (not p['pts'] or p['draw'] == 0) and not p['multi_shape'] and p['cut_shape'] == 'rectangle'
+               and math.isclose(items[0][1], W) and math.isclose(items[0][2], H))
+    if neutral and (pieces is None or pieces == layout(p, [(W, H)], W, H)):
+        image = items[0][0].resize((cw, ch), resample)
+        canvas.paste(image, (0, 0), image if image.mode == 'RGBA' else None)
+        return effects.grain(canvas, p, ppi, grain_texture)
 
     def prep(pc):
         opacity = p['opacity'] * (pc[11] if len(pc) > 11 else 1)
@@ -269,12 +282,24 @@ def render(p, items, ppi, resample, pieces=None):
         for res in POOL.map(prep, batch):
             if res:
                 canvas.paste(res[0], res[2], res[1])
-    return canvas
+    return effects.grain(canvas, p, ppi, grain_texture)
 
 
 def _spec(s, store):
     src = store[s["id"]]
-    return src, min(max(int(s.get("page", 0)), 0), src.pages - 1), min(max(float(s["w"]), 0.1), 400)
+    return src, min(max(int(s.get("page", 0)), 0), src.pages - 1), min(max(float(s["w"]), 0.001), 400)
+
+
+def _grain_texture(p, store):
+    source_id = p['grain_source_id']
+    if not source_id:
+        return None
+    src = store.get(source_id)
+    if src is None:
+        raise ValueError('custom grain image is unavailable; import it again or choose procedural grain')
+    if src.pdf:
+        raise ValueError('custom grain must be an image, not a PDF')
+    return effects.texture(thumb(src, 0)) if p['grain'] else None
 
 
 def compose(raw, specs, store, final=False, long_edge=None):
@@ -289,12 +314,13 @@ def compose(raw, specs, store, final=False, long_edge=None):
     else:
         ppi = p["pv"] / max(p["w"], p["h"])
     lut, items = tone_lut(p), []
+    grain_texture = _grain_texture(p, store)
     for s in specs:
         src, pg, w = _spec(s, store)
         # a PDF only needs rasterising as sharp as its sections end up on the canvas
         im = raster(src, pg, dpi=min(max(ppi * p["scale"] * (1 + p["var"]), 72), 600)) if final else thumb(src, pg)
-        items.append((adjust(im, lut), w, w * im.height / im.width))
-    return p, render(p, items, ppi, Image.LANCZOS if final else Image.BILINEAR)
+        items.append((effects.grade(adjust(im, lut), p), w, w * im.height / im.width))
+    return p, render(p, items, ppi, Image.LANCZOS if final else Image.BILINEAR, grain_texture=grain_texture)
 
 
 def corners(cx, cy, w, h, ang):
@@ -525,13 +551,13 @@ def _gif_items(p, specs, store):
         src, pg, w = _spec(s, store)
         im = thumb(src, pg).copy()
         originals.append(im)
-        items.append((adjust(im, lut), w, w * im.height / im.width))
+        items.append((effects.grade(adjust(im, lut), p), w, w * im.height / im.width))
     return items, originals
 
 
 def _gif_original(p, originals, ppi):
     """Put each unchanged source on the canvas before the collage process starts."""
-    cw, ch = round(p["w"] * ppi), round(p["h"] * ppi)
+    cw, ch = max(1, round(p["w"] * ppi)), max(1, round(p["h"] * ppi))
     canvas = Image.new("RGB", (cw, ch), p["bg"])
     cols = max(1, math.ceil(math.sqrt(len(originals))))
     rows = math.ceil(len(originals) / cols)
@@ -561,6 +587,7 @@ def animation_frames(raw, specs, store):
     if not specs:
         raise ValueError("add an image or PDF first")
     ppi = 720 / max(p["w"], p["h"])
+    grain_texture = _grain_texture(p, store)
     items, originals = _gif_items(p, specs, store)
     steps = int(p['smoothness'])
     sizes = [(w, h) for _, w, h in items]
@@ -572,25 +599,25 @@ def animation_frames(raw, specs, store):
     original = _gif_original(p, originals, ppi)
     for _ in range(5):
         yield _gif_label(original.copy(), 'original file')
-    portions = render(q, items, ppi, Image.BILINEAR, home)
+    portions = render(q, items, ppi, Image.BILINEAR, home, grain_texture)
     for i in range(1, steps+1):
         yield _gif_label(Image.blend(original, portions, i/steps), 'portioning')
     for i in range(1, steps+1):
         t = i/steps
         rotated = [h[:6] + (pc[6]*t,) + h[7:] for h, pc in zip(home, first)]
-        yield _gif_label(render(q, items, ppi, Image.BILINEAR, rotated), 'rotation')
+        yield _gif_label(render(q, items, ppi, Image.BILINEAR, rotated, grain_texture), 'rotation')
     for i in range(1, steps+1):
         t = i/steps; t = t*t*(3-2*t)
         migrated = [pc[:2] + tuple(h[k]+(pc[k]-h[k])*t for k in range(2,6)) + pc[6:] for h, pc in zip(home, first)]
-        yield _gif_label(render(q, items, ppi, Image.BILINEAR, migrated), 'migration')
+        yield _gif_label(render(q, items, ppi, Image.BILINEAR, migrated, grain_texture), 'migration')
     layer_ids = [layer for layer in range(int(p['layers'])) for _ in range(counts[layer+1]-counts[layer])]
     for i in range(1, steps+1):
         t = i/steps
         accumulated = [pc + (1 if layer == 0 else min(1, max(0, t*(int(p['layers'])-1)-(layer-1))),) for pc, layer in zip(pieces, layer_ids)]
-        yield _gif_label(render(dict(p, opacity=1), items, ppi, Image.BILINEAR, accumulated), 'accumulation')
+        yield _gif_label(render(dict(p, opacity=1), items, ppi, Image.BILINEAR, accumulated, grain_texture), 'accumulation')
     for i in range(1, steps+1):
-        yield _gif_label(render(dict(p, opacity=1+(p['opacity']-1)*i/steps), items, ppi, Image.BILINEAR, pieces), 'opacity')
-    final = render(p, items, ppi, Image.BILINEAR, pieces)
+        yield _gif_label(render(dict(p, opacity=1+(p['opacity']-1)*i/steps), items, ppi, Image.BILINEAR, pieces, grain_texture), 'opacity')
+    final = render(p, items, ppi, Image.BILINEAR, pieces, grain_texture)
     for _ in range(10):
         yield final.copy()
 
@@ -633,7 +660,7 @@ def triptych(raw, specs, store):
     """Original sources, final collage and styled migration map as three equal panels."""
     p = clean(raw)
     dpi = p['dpi']
-    width, height = round(p['w']*dpi), round(p['h']*dpi)
+    width, height = max(1, round(p['w']*dpi)), max(1, round(p['h']*dpi))
     gap = max(1, round(.15*dpi))
     if (3*width+2*gap)*height > MAX_PIXELS:
         raise ValueError('triptych is over the 400 MP limit; reduce size or DPI')

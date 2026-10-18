@@ -1,5 +1,28 @@
 # morphaic
 
+## Morphaic 1.0
+
+Morphaic 1.0 builds on v0.2.0 with a glass workspace, color effects, dense relief exports and integrated desktop controls. Run `uv run server.py` for the browser UI, or build the Windows executable with `./build-test.ps1` after `uv sync --extra desktop --group build`. The executable is `dist/morphaic-1.0.0.exe`.
+
+The desktop app integrates minimize, maximize/restore and close into a glass bubble beside Export. Drag the app name to move the window, double-click it to maximize, and drag any window edge or corner to resize. F11 toggles full screen; Escape leaves full screen.
+
+- Clearer grayscale contrast and slightly larger text. New color grading, film grain and gradient-map controls use collapsible panels.
+- Imports start neutral: no scatter, rotation, size variance or drawing pull, one opaque layer. Unchanged single-image imports are resized as one image to avoid seams on odd pixel dimensions.
+- Right-click the canvas (or focus it and press Shift+F10) for reset canvas, remove attached images and quick export using the current export settings. Removing sources and resets can be undone.
+- The top-bar reset restores neutral edits, original source sizes/pages and default export settings while retaining attached images. Its confirmation includes a persistent "don't show me this again" preference. Canvas reset retains the chosen export format and resolution.
+- Color grading adds exposure, temperature, tint and saturation. Gradient maps support up to 16 editable color/brightness stops, presets, reversal and blend amount. These share the existing preview/export pipeline, including animations and collage-based reliefs.
+- Film grain supports generated monochrome grain or an imported image texture. Amount starts at zero; raise it to apply. Grain size is measured in pixels at 300 dpi, stays at the same physical scale across resolutions and uses the collage seed. Custom textures repeat and are normalized around neutral gray. Very fine grain is reduced at low preview resolutions to avoid moire. TXT settings include effect values and custom texture name/reference, but do not embed the texture or source images.
+- Relief spacing reaches **0.01 mm**. The old 500,000-vertex ceiling is removed. Compact mesh arrays and chunked binary STL encoding support denser meshes; the app shows one estimated file size at the bottom of export settings and checks available physical memory before exporting. Model size, format and backing affect memory requirements. The live preview remains lightweight.
+- The cutting mat is a monochrome overlay within the canvas area. Freehand/point cuts, seal/lift, saved stencils, keyboard controls, sound and cut undo/redo remain available.
+
+Validation: `uv run test_collage.py`, `uv run test_effects.py`, `uv run test_relief_quality.py`, and `node test_controls.js`. `test_iteration_ui.cjs` uses Playwright and installed Edge against an isolated local server (default `http://127.0.0.1:8872`, overridden with `MORPHAIC_TEST_URL`). Its server must use a temporary settings path and export directory because it tests persistent preferences and saves an export. The dense-mesh regression generates 508,362 vertices and 1,016,720 triangles at 0.01 mm spacing and checks the resulting binary STL.
+
+Controller mode in settings hides the menus and canvas controls while retaining the artwork and current edits. F8 toggles this mode; Escape restores the menus. This is a canvas-only display mode, not a new controller driver or mapping system.
+
+The installer offers an optional removal step when it detects a previous per-user Morphaic installation (including test builds). Leaving it unchecked updates in place. Portable EXEs are not registered installations and are left alone.
+
+## Overview
+
 Drop in images or PDFs, cut them into sections, scatter and layer the sections into a new picture, export at print resolution.
 
 ```
@@ -11,15 +34,15 @@ Needs [uv](https://docs.astral.sh/uv/); the first run installs Pillow, PyMuPDF, 
 
 ## Desktop apps
 
-### morphaic 0.2.0
+### Morphaic 1.0
 
-Export settings now have **2D** and **3D** tabs. 2D retains PNG, TIF, PDF, GIF, MP4, migration map, triptych and TXT, and adds grayscale luminosity PNG/TIF. 3D creates a closed luminosity relief from the current collage or a separately imported image. It exports ASCII/binary STL and Rhino 3DM. Width, height, relief depth, base thickness and mesh spacing use millimeters, independently of the collage's display units. STL is a unitless format: its numeric coordinates always represent millimeters. 3DM explicitly stores millimeter units. Lower mesh spacing gives finer detail; exports above 500,000 vertices are rejected with a request to increase spacing. Grayscale luminosity exports use the relief's physical width/height and output DPI, with a 16 MP limit.
+Export settings now have **2D** and **3D** tabs. 2D retains PNG, TIF, PDF, GIF, MP4, migration map, triptych and TXT, and adds grayscale luminosity PNG/TIF. 3D creates a closed luminosity relief directly from the current collage, including its current edits. It exports ASCII/binary STL and Rhino 3DM. Width, height, relief depth, base thickness and mesh spacing use millimeters, independently of the collage's display units. STL is a unitless format: its numeric coordinates always represent millimeters. 3DM explicitly stores millimeter units. Lower mesh spacing gives finer detail; available memory is checked before export. Grayscale luminosity exports use the relief's physical width/height and output DPI, with a 16 MP limit.
 
-**Open live 3D viewer** shows a shaded, orbitable relief. Drag the viewer title bar to move its window within the program; the focused title also supports arrow keys. Drag the model to rotate, scroll to zoom, and choose live updates or use the title-bar refresh, reset-view and back-view buttons. The preview uses at most 81 samples per axis; exports use the chosen spacing. Type the physical model size in the compact W × H row, using the selected in/cm/mm units. Width and height stay linked to canvas proportions (or the imported image when no canvas exists). Relief depth, base thickness, gamma, contrast, smoothing radius and inversion remain adjustable. White pixels are highest by default. Luminosity uses Rec.709 weights on 8-bit RGB values; the grayscale output contains the same gamma/contrast/smoothing/inversion used for the relief, without the base thickness.
+**Open live 3D viewer** shows a shaded, orbitable relief. Drag the viewer title bar to move its window within the program; the focused title also supports arrow keys. Drag the model to rotate, scroll to zoom, and choose live updates or use the title-bar refresh, reset-view and back-view buttons. The preview uses at most 81 samples per axis; exports use the chosen spacing. Type the physical model size in the compact W × H row, using the selected in/cm/mm units. Width and height stay linked to canvas proportions. Add an image or PDF to the canvas before opening the viewer or exporting a relief. Relief depth, base thickness, gamma, contrast, smoothing radius and inversion remain adjustable. White pixels are highest by default. Luminosity uses Rec.709 weights on 8-bit RGB values; the grayscale output contains the same gamma/contrast/smoothing/inversion used for the relief, without the base thickness.
 
 The **cut shape** selector starts with the existing rectangles and cell sizes. Choose ellipse, triangle, diamond, hexagon, star, heart or a custom stencil. **Mix multiple shapes** keeps shares at exactly 100%, redistributing the unlocked shares when one changes. Lock an individual shape percentage to hold it fixed; locks are included in undo/redo and TXT settings. The larger filled radial chart shows actual cut percentages across all layers. Total cuts appear beneath section size. Shape assignments stay fixed while moving, rotating, scaling or changing output resolution. Migration PDFs trace the cut shapes. Enable **end nodes by cut shape** to set separate end markers for each shape, including a miniature of that cut shape.
 
-**Cutting mat** is a local craft-knife playground with green measuring grid, collage paper, moving blade, paper shavings and optional synthesized cutting sounds. Its top bar holds cutting modes, undo/redo arrows, a sound icon and the settings icon for naming and saving stencils, instructions and status. Drag freehand or click corners in point-to-point mode; return to the start ring or choose **seal & lift**, then **save** to apply the lifted outline to collage sections. Ctrl+Z undoes a cut and Ctrl+Shift+Z redoes it while the mat is open; starting a new sheet and lifting a shape can also be undone. Stencils are fitted to each section's bounding rectangle. Crossing cuts and tiny slivers ask for a cleaner outline before lifting. Cut settings, custom stencil points, per-shape markers and relief settings support the existing undo/redo workflow.
+**Cutting mat** overlays the current artwork directly, with a moving blade, paper shavings and optional synthesized cutting sounds. The normal workspace has a faint drafting grid. Its top bar holds cutting modes, undo/redo arrows, a sound icon and the settings icon for naming and saving stencils, instructions and status. Drag freehand or click corners in point-to-point mode; return to the start ring or choose **seal & lift**, then **save** to apply the lifted outline to collage sections. Ctrl+Z undoes a cut and Ctrl+Shift+Z redoes it while the mat is open; starting a new sheet and lifting a shape can also be undone. Stencils are fitted to each section's bounding rectangle. Crossing cuts and tiny slivers ask for a cleaner outline before lifting. Cut settings, custom stencil points, per-shape markers and relief settings support the existing undo/redo workflow.
 
 **Saved stencils:** open the cutting mat's settings icon to name and save a lifted stencil, or tick **save stencil for future sessions** before using it. Click **saved stencils**, beside **cutting mat**, to open the menu and reload a named outline in future sessions. Edit its name and save again to rename the same library entry. Settings live in the Morphaic application-data folder, with existing Collage settings and stencils preserved on first save.
 
@@ -27,11 +50,11 @@ The **cut shape** selector starts with the existing rectangles and cell sizes. C
 
 Version 0.2.0 introduces the morphaic name, relief exports, French-cleat models, mixed cut shapes and the cutting mat. Cut, collage, tone and layers have collapsible panels with disclosure icons on the right. The export icon opens configurations under an **export** header, and display units sit beside each source's page size.
 
-Release downloads include `morphaic-0.2.0.exe` for Windows and separate `morphaic-0.2.0-macos-apple-silicon.zip` and `morphaic-0.2.0-macos-intel.zip` archives for macOS 15 or later. On a Mac, unzip the matching archive and move `morphaic.app` into Applications. Earlier release downloads retain their historical autocollage names. Mac builds use ad-hoc signing and are not Apple-notarized; macOS may require approval in System Settings > Privacy & Security on first launch.
+Release downloads include `morphaic-1.0.0.exe` and `morphaic-1.0.0-setup.exe` for Windows and separate `morphaic-1.0.0-macos-apple-silicon.zip` and `morphaic-1.0.0-macos-intel.zip` archives for macOS 15 or later. On a Mac, unzip the matching archive and move `morphaic.app` into Applications. Earlier release downloads retain their historical autocollage names. Mac builds use ad-hoc signing and are not Apple-notarized; macOS may require approval in System Settings > Privacy & Security on first launch.
 
 Run `uv run --extra desktop desktop.py` to open morphaic in its own resizable window. This keeps the existing HTML interface and Python image engine, but does not open an external browser. Windows needs the Microsoft Edge WebView2 Runtime.
 
-GitHub Actions builds and tests the executable before publishing it to [Releases](https://github.com/diafanous/morphaic/releases). To build locally, run `uv sync --extra desktop --group build`, then `uv run --extra desktop --group build pyinstaller --clean --noconfirm --onefile --windowed --name morphaic --add-data "index.html;." --add-data "studio.js;." --add-data "controls.js;." --collect-all manifold3d --collect-all rhino3dm --collect-all imageio_ffmpeg --collect-all pillow_heif --exclude-module PIL._imagingft desktop.py` on Windows.
+GitHub Actions builds and tests the executable before publishing it to [Releases](https://github.com/diafanous/morphaic/releases). To build the local test executable, run `uv sync --extra desktop --group build`, then `./build-test.ps1` on Windows.
 
 Version 0.1.3 adds up to 16 layers, Ctrl+Z/Ctrl+Y edit history, a fixed sidebar header, export settings under the gear button, HEIC imports, and folder selection. Exports save to Downloads by default; choose another folder in settings to remember it. Existing exports receive numbered filenames rather than being overwritten.
 
@@ -42,7 +65,7 @@ GIF and MP4 exports show the collage progression at a 720-pixel long edge. Smoot
 ## How it works
 
 1. **Source.** Add any number of images or PDFs (drag onto the window too). The physical size is read from the PDF page or the image's dpi tag. If an image has no dpi tag the size is assumed at 300 dpi and flagged; type the real width and the height follows. **Random from folder:** paste a folder path, say how many, press *pick*: that many random images/PDFs from the folder (not its sub-folders) replace the previous random pick; files you added yourself stay.
-2. **Cut.** Width/height sliders (or typed physical sizes) set the section size as a share of the source, which sets the grid (25% = 4 columns). *Portion of each file* below 100% cuts only random square portions of each file (*portions per file* of them), each cut into the same grid; sections stay in the part of the canvas their portion came from.
+2. **Cut.** Typed physical section sizes set the cut grid. Mix multiple shapes appears first in the Cut panel. *Portion of each file* below 100% cuts only random square portions of each file (*portions per file* of them), each cut into the same grid; sections stay in the part of the canvas their portion came from.
 3. **Collage.** Each section goes back where it was cut, then moves. Every slider value can be typed.
 
    | slider | does |
@@ -85,3 +108,18 @@ The preview is rendered by the same engine as the export, at screen size. Slider
 - The migration map and portion linework are vector, but the collage itself is raster, and PDF sources are rasterised, not kept as vectors. They are rendered at the resolution the sections will actually have (72-600 dpi).
 - Tone is one curve applied to all channels together (no separate R/G/B curves). The drawing pull and grid use at most 400 sampled points / 48 grid rows.
 - A 24 x 36 in, 300 dpi export (78 MP) with ~200 rotated sections takes about 10-15 s and ~1.3 GB of RAM; rotation dominates.
+
+
+## Windows test installer and canvas updates
+
+Run `./build-installer.ps1` with Inno Setup 6 or newer installed (or pass `-Compiler` with the ISCC.exe path). It builds `dist/morphaic-1.0.0-setup.exe`, a per-user installer with Start menu shortcut, optional desktop shortcut and uninstaller. The standalone `dist/morphaic-1.0.0.exe` remains available. Both use `assets/morphaic.ico`; its vector master and regeneration script are included. Windows builds are unsigned. The build scripts create local artifacts; tagged GitHub builds publish releases.
+
+The liquid-glass study uses translucent cards, soft reflections and a scrollbar four pixels from the right edge. Wheel zooms about the pointer; Shift+wheel pans horizontally and Alt+wheel pans vertically. Space+drag or middle-drag pans the canvas. Arrow keys pan when the canvas has focus. Fit (or Ctrl/Cmd+0) restores the view. These controls do not alter export dimensions. In the cutting mat, arrow keys and Space retain keyboard knife control; middle-drag and wheel still navigate.
+
+## InDesign templates
+
+Choose **InDesign** in 2D export, then **import file**. The selector starts empty and accepts `.indd`, `.indt` and `.idml`. Adobe InDesign must be installed on Windows. Morphaic reads the template's image frames and lets you choose what drawing goes in each; unassigned frames keep their original content. Importing a different template replaces the frame assignments. Templates and assignments are retained only for the current app session.
+
+For automatic placement, set image frame Script Labels in InDesign to `morphaic:collage`, `morphaic:initial`, `morphaic:migration`, `morphaic:final`, `morphaic:map`, or `morphaic:source:1` (source numbers follow the current source list). Labels without the `morphaic:` prefix also work for image frames. Unlabeled frames can be assigned manually. Use `morphaic:title` or `morphaic:seed` on text frames to fill the drawing title or seed. Choose fit entire image or fill frame to control cropping.
+
+Export fills a copy of the template and saves a ZIP containing INDD, IDML, PDF and settings. Generated drawings are embedded; other linked assets remain as supplied by the template. The original file is unchanged. There is no fixed number of drawings or hard-coded layout: the selected template's frames determine placement.

@@ -1,6 +1,6 @@
 [project]
 name = "morphaic"
-version = "0.2.0"
+version = "1.0.0"
 requires-python = ">=3.10"
 dependencies = ["pillow>=10.1", "pymupdf>=1.24", "imageio-ffmpeg>=0.6.0", "pillow-heif>=0.18.0", "rhino3dm>=8.17,<9", "manifold3d>=3.3,<4", "numpy>=1.26,<3"]
 

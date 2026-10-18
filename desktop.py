@@ -13,10 +13,68 @@ from urllib.request import urlopen
 
 
 class DesktopAPI:
+    def __init__(self):
+        self._window = None
+        self._fullscreen = False
+        self._maximized = False
+
+    def _bind(self, window):
+        self._window = window
+        window.events.maximized += lambda: setattr(self, "_maximized", True)
+        window.events.restored += lambda: setattr(self, "_maximized", False)
+
+    def set_fullscreen(self, enabled=None):
+        enabled = not self._fullscreen if enabled is None else bool(enabled)
+        if enabled != self._fullscreen:
+            self._window.toggle_fullscreen()
+            self._fullscreen = enabled
+        return self._fullscreen
+
+    def window_action(self, action):
+        if action == 'close':
+            self._window.destroy()
+        elif action == 'minimize':
+            self._window.minimize()
+        elif action == 'maximize':
+            if self._fullscreen:
+                self.set_fullscreen(False)
+            elif self._maximized:
+                self._window.restore()
+            else:
+                self._window.maximize()
+        else:
+            raise ValueError('Unknown window action')
+
+    def window_state(self):
+        return {'x': self._window.x, 'y': self._window.y, 'width': self._window.width, 'height': self._window.height,
+                'maximized': self._maximized or self._fullscreen}
+
+    def resize_window(self, width, height, x=None, y=None):
+        if not self._maximized and not self._fullscreen:
+            self._window.resize(max(840, min(8192, int(width))), max(620, min(8192, int(height))))
+            if x is not None and y is not None:
+                self._window.move(int(x), int(y))
+
     def choose_folder(self):
         import webview
         result = webview.windows[0].create_file_dialog(webview.FOLDER_DIALOG)
         return result[0] if result else None
+
+
+def app_icon() -> str:
+    root = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parent))
+    return str(root / 'assets' / ('morphaic.ico' if sys.platform == 'win32' else 'morphaic.png'))
+
+
+def create_desktop_window(webview, url, smoke=False):
+    api = DesktopAPI()
+    window = webview.create_window(
+        'morphaic smoke test' if smoke else 'morphaic 1.0', url,
+        width=840 if smoke else 1280, height=620 if smoke else 900,
+        min_size=(840, 620), frameless=True, easy_drag=False, js_api=api,
+    )
+    api._bind(window)
+    return window
 
 
 def webview_storage_path() -> Path:
@@ -36,21 +94,24 @@ def webview_storage_path() -> Path:
 def run_gui_smoke_test(url: str, webview) -> None:
     """Exercise the packaged native window, WebView2 backend, and bundled UI."""
     result: dict[str, str | None] = {"error": None, "title": None}
-    window = webview.create_window(
-        "morphaic smoke test",
-        url,
-        width=840,
-        height=620,
-    )
+    window = create_desktop_window(webview, url, smoke=True)
 
     def on_loaded() -> None:
         try:
             title = window.evaluate_js("document.title")
             has_controls = window.evaluate_js(
-                "['open', 'pick', 'go', 'unit', 'animpreview', 'node_end_size', 'exportfolder'].every(id => document.getElementById(id))"
+                "['open', 'pick', 'go', 'unit', 'animpreview', 'node_end_size', 'exportfolder', 'resetAll', 'canvasMenu', 'gradientStops', 'grainImport'].every(id => document.getElementById(id))"
             )
             if str(title).strip().lower() != "morphaic" or not has_controls:
                 raise RuntimeError("desktop smoke test loaded an unexpected page")
+            if sys.platform == 'win32' and str(window.native.FormBorderStyle) != 'None':
+                raise RuntimeError('native title bar should be replaced by app controls')
+            if not window.evaluate_js("Boolean(document.querySelector('#windowControls:not([hidden])'))"):
+                raise RuntimeError('window control bubble is missing')
+            if not window.evaluate_js("document.querySelector('#windowControls').getBoundingClientRect().right <= innerWidth"):
+                raise RuntimeError('window controls overflow the header')
+            window._js_api.set_fullscreen(True)
+            window._js_api.set_fullscreen(False)
             result["title"] = str(title)
         except Exception as error:
             result["error"] = str(error)
@@ -70,7 +131,7 @@ def run_gui_smoke_test(url: str, webview) -> None:
     timeout.daemon = True
     timeout.start()
     try:
-        webview.start(storage_path=str(webview_storage_path()))
+        webview.start(storage_path=str(webview_storage_path()), icon=app_icon())
     finally:
         timeout.cancel()
 
@@ -135,6 +196,8 @@ def verify_packaged_formats():
         if len(data)<100:
             raise RuntimeError(f'packaged luminosity {fmt} export produced no data')
     collage.export({**raw,'cut_shape':'star'},specs,store,'png')
+    collage.export({**raw,'exposure':.5,'saturation':.7,'grain':.3,'gradient_amount':.5},specs,store,'png')
+    luminosity.export(raw,specs,store,{**relief,'width_mm':1,'height_mm':1,'spacing_mm':.01},'stl')
     luminosity.export(raw,specs,store,{**relief,'width_mm':100,'height_mm':75,'spacing_mm':5,'cleat':True},'3dm')
 
 
@@ -144,6 +207,9 @@ def main() -> int:
     smoke_test = "--smoke-test" in sys.argv[1:]
     server_smoke_test = "--server-smoke-test" in sys.argv[1:]
     try:
+        if sys.platform == 'win32':
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('Diafanous.Morphaic.Test')
         # Keep optional desktop imports inside the handled startup path so a
         # missing WebView2/runtime dependency cannot produce a frozen-app dialog.
         if smoke_test or server_smoke_test:
@@ -173,15 +239,8 @@ def main() -> int:
                 run_gui_smoke_test(f"http://127.0.0.1:{port}", webview)
             return 0
 
-        webview.create_window(
-            "morphaic",
-            f"http://127.0.0.1:{port}",
-            width=1280,
-            height=900,
-            min_size=(840, 620),
-            js_api=DesktopAPI(),
-        )
-        webview.start(storage_path=str(webview_storage_path()))
+        create_desktop_window(webview, f"http://127.0.0.1:{port}")
+        webview.start(storage_path=str(webview_storage_path()), icon=app_icon())
         return 0
     except Exception as error:
         if smoke_test or server_smoke_test:

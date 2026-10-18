@@ -1,6 +1,6 @@
 // Local, offline tools: cut stencils, a craft-knife playground, and a WebGL relief viewer.
 const SHAPE_NAMES = ['rectangle','ellipse','triangle','diamond','hexagon','star','heart','custom'];
-const SHAPE_COLORS = ['#eacb80','#6dc9b3','#e4876c','#a49ae2','#78afd3','#e4a4bf','#bdc76e','#e9e9dc'];
+const SHAPE_COLORS = ['#9fbdd4','#a9c4b3','#d9a4a7','#b4bddd','#bfd4ca','#bca18b','#cc9386','#d7c8ae'];
 st.exportMode = '2d'; st.lumFmt = 'stl';
 st.cut = {cut_shape:'rectangle',multi_shape:false,shape_weights:Object.fromEntries(SHAPE_NAMES.map(n=>[n,n==='rectangle'?100:0])),shape_locks:{},custom_shape:[],stencil_name:'',stencil_id:''};
 st.lum = {source:'collage',source_id:'',source_name:'',source_aspect:1,width_mm:100,height_mm:100,relief_mm:10,base_mm:2,spacing_mm:.5,gamma:1,contrast:1,smooth_mm:0,invert:false,encoding:'binary'};
@@ -12,7 +12,7 @@ const lumControls = {};
 const mmText=value=>+Number(value).toFixed(3);
 let savedStencils = [];
 function studioLinkSize(axis='width', value=st.lum.width_mm) {
-  const aspect=st.h>0&&st.w>0?st.h/st.w:st.lum.source==='import'&&st.lum.source_id?st.lum.source_aspect:11/8.5;
+  const aspect=st.h>0&&st.w>0?st.h/st.w:11/8.5;
   const size=StudioMath.dimensions(value,axis,aspect);if(size)Object.assign(st.lum,size);
   const unitScale=UN[st.unit]/25.4;
   if(document.activeElement!==$('#lumWidth'))$('#lumWidth').value=+(st.lum.width_mm*unitScale).toFixed(4);
@@ -25,7 +25,7 @@ for(const [id,axis] of [['#lumWidth','width'],['#lumHeight','height']]) {
 }
 function syncShares() {
   document.querySelectorAll('[data-shape-share]').forEach(el=>{const name=el.dataset.shapeShare,value=st.cut.shape_weights[name];el.value=value;el.style.setProperty('--p',value+'%');el.disabled=Boolean(st.cut.shape_locks?.[name])||name==='custom'&&!st.cut.custom_shape.length;});
-  document.querySelectorAll('[data-shape-lock]').forEach(el=>{const name=el.dataset.shapeLock,locked=Boolean(st.cut.shape_locks?.[name]);el.textContent=locked?'🔒':'🔓';el.setAttribute('aria-pressed',String(locked));el.setAttribute('aria-label',(locked?'unlock ':'lock ')+name+' percentage');el.title=(locked?'unlock ':'lock ')+name+' percentage';el.disabled=name==='custom'&&!st.cut.custom_shape.length;});
+  document.querySelectorAll('[data-shape-lock]').forEach(el=>{const name=el.dataset.shapeLock,locked=Boolean(st.cut.shape_locks?.[name]);el.setAttribute('aria-pressed',String(locked));el.setAttribute('aria-label',(locked?'unlock ':'lock ')+name+' percentage');el.title=(locked?'unlock ':'lock ')+name+' percentage';el.disabled=name==='custom'&&!st.cut.custom_shape.length;});
 }
 function setShapeShare(name,value) {
   st.cut.shape_weights=StudioMath.shares(st.cut.shape_weights,name,value,SHAPE_NAMES.filter(n=>n!=='custom'||st.cut.custom_shape.length),st.cut.shape_locks);syncShares();studioCounts({});
@@ -76,14 +76,22 @@ function studioSync() {
   $('#stencilSave').disabled=!st.cut.custom_shape.length&&!knifeSealed;if(!$('#knifeDialog').open)$('#stencilName').value=st.cut.stencil_name||'';stencilOptions();
   $('#nodeByShape').checked=st.map.node_by_shape; $('#shapeNodes').hidden=!st.map.node_by_shape;
   document.querySelectorAll('[data-shape-node]').forEach(el=>el.value=st.map.node_end_shapes[el.dataset.shapeNode]||st.map.node_end);
-  $('#lumSource').value=st.lum.source; $('#lumImportRow').hidden=st.lum.source!=='import';
-  $('#lumImportName').textContent=st.lum.source_name||'choose an image';
+  st.lum.source='collage';
   $('#stlEncoding').value=st.lum.encoding; $('#lumInvert').checked=st.lum.invert;
   for (const [key,controls] of Object.entries(lumControls)) { controls.r.value=st.lum[key]; controls.n.value=st.lum[key]; controls.fill(); }
-  mountingSync();studioCounts(lastCutCounts); studioOutput(); studioSchedule();
-  studioLinkSize();
+  studioLinkSize();mountingSync();studioCounts(lastCutCounts);studioOutput();studioSchedule();
 }
 
+function studioMeshEstimate(p=st.lum,format=st.lumFmt){
+  const nx=Math.ceil(p.width_mm/p.spacing_mm)+1,ny=Math.ceil(p.height_mm/p.spacing_mm)+1;
+  let vertices=nx*ny+2*nx+2*ny-3,triangles=2*vertices-4;
+  // Allow for mounting geometry; text and Rhino encoding sizes are approximate.
+  if(p.cleat){vertices+=1024;triangles+=2048;}
+  const fileBytes=format==='3dm'?4096+24*vertices+16*triangles:
+    p.encoding==='ascii'?64+280*triangles:84+50*triangles;
+  return {fileBytes};
+}
+function studioBytes(value){return value>=1024**3?(value/1024**3).toFixed(2)+' GiB':(value/1024**2).toFixed(1)+' MiB';}
 function studioOutput() {
   const three=st.exportMode==='3d', lum=three||st.fmt.startsWith('lum-');
   $('#output2d').hidden=three; $('#output3d').hidden=!three; $('#lumControls').hidden=!lum; $('#dpiRow').hidden=three;
@@ -92,18 +100,16 @@ function studioOutput() {
   $('#stlEncodingRow').hidden=st.lumFmt!=='stl';
   document.querySelectorAll('[data-model-only]').forEach(el=>el.hidden=!three);
   if (!lum) return;
-  const p=st.lum, nx=Math.ceil(p.width_mm/p.spacing_mm)+1, ny=Math.ceil(p.height_mm/p.spacing_mm)+1;
-  const vertexCount=nx*ny+2*nx+2*ny-3;
+  const p=st.lum,estimate=studioMeshEstimate(p);
   const w=Math.max(1,Math.round(p.width_mm/25.4*st.dpi)),h=Math.max(1,Math.round(p.height_mm/25.4*st.dpi));
-  $('#px').textContent=three ? `${mmText(p.width_mm)} × ${mmText(p.height_mm)} mm · ${nx} × ${ny} samples · ${p.spacing_mm} mm spacing${vertexCount>500000?' · increase spacing (500k vertex limit)':''}`
+  $('#px').textContent=three ? `estimated size: ${studioBytes(estimate.fileBytes)}`
     : `${w} × ${h} px · grayscale luminosity · ${(w*h/1e6).toFixed(1)} MP${w*h>16e6?' · over the 16 MP limit':''}`;
-  $('#px').classList.toggle('warn',three?vertexCount>500000:w*h>16e6);
+  $('#px').classList.toggle('warn',!three&&w*h>16e6);
   $('#go').textContent=three?'export '+st.lumFmt:'export map '+st.fmt.slice(4);
 }
 
 async function studioExport() {
-  if (st.lum.source==='collage'&&!st.files.length) return toast('add a collage source first');
-  if (st.lum.source==='import'&&!st.lum.source_id) return toast('import an image for the luminosity map first');
+  if (!st.files.length) return toast('add an image or PDF to the canvas first');
   const b=$('#go'); b.disabled=true; b.textContent='building…';
   try {
     await exportFolderReady; await saveExportFolder();
@@ -117,28 +123,9 @@ async function studioExport() {
 
 $('#exportMode').onclick=e=>{if(!e.target.dataset.mode)return; st.exportMode=e.target.dataset.mode; outUI();};
 $('#lum3d').onclick=e=>{if(!e.target.dataset.format)return;st.lumFmt=e.target.dataset.format;outUI();};
-$('#stlEncoding').onchange=e=>st.lum.encoding=e.target.value;
-$('#lumSource').onchange=e=>{st.lum.source=e.target.value;studioSync();};
-$('#lumImport').onclick=()=>$('#lumPick').click();
-$('#lumPick').onchange=async e=>{
-  const file=e.target.files[0]; e.target.value=''; if(!file)return;
-  try {
-    const r=await fetch('/source',{method:'POST',headers:{'X-Name':encodeURIComponent(file.name)},body:file});
-    const result=await r.json(); if(!r.ok)throw new Error(result.error);
-    if(result.pdf) { await fetch('/source/'+result.id,{method:'DELETE'}); throw new Error('choose an image for the luminosity map'); }
-    // Keep session imports for undo/redo, just like the collage's source store.
-    st.lum.source_name=result.name; st.lum.source_aspect=result.aspect; st.lum.source_id=result.id; st.lum.height_mm=Math.min(5000,Math.max(1,+(st.lum.width_mm*result.aspect).toFixed(2))); studioSync();
-  } catch(e) {toast(e.message);}
-};
-$('#lumDemo').onclick=async()=>{
-  const button=$('#lumDemo');button.disabled=true;
-  try{const r=await fetch('/luminosity/demo',{method:'POST'}),source=await r.json();if(!r.ok)throw new Error(source.error);
-    beginHistory();Object.assign(st.lum,{source:'import',source_id:source.id,source_name:source.name,source_aspect:source.aspect,height_mm:Math.min(5000,Math.max(1,+(st.lum.width_mm*source.aspect).toFixed(2)))});
-    studioSync();finishHistory();$('#reliefOpen').click();
-  }catch(e){toast(e.message);}finally{button.disabled=false;}
-};
+$('#stlEncoding').onchange=e=>{st.lum.encoding=e.target.value;outUI();};
 const LUM_SLIDERS = [['relief_mm','relief depth (mm)',0,100,.1,10,true],['base_mm','base thickness (mm)',.1,50,.1,2,true],
-  ['spacing_mm','quality / mesh spacing (mm)',.05,20,.05,.5,true],['gamma','luminosity gamma',.2,5,.05,1],
+  ['spacing_mm','quality / mesh spacing (mm)',.01,20,.01,.5,true],['gamma','luminosity gamma',.2,5,.05,1],
   ['contrast','luminosity contrast',.1,4,.05,1],['smooth_mm','smoothing radius (mm)',0,10,.05,0]];
 for (const [key,label,min,max,step,def,modelOnly] of LUM_SLIDERS) {
   const row=document.createElement('div');row.className='sl';if(modelOnly)row.dataset.modelOnly='';
@@ -175,7 +162,7 @@ for(const [id,key] of Object.entries(MOUNT_INPUTS)) {
 for(const [i,name] of SHAPE_NAMES.entries()) {
   const option=document.createElement('option');option.value=name;option.textContent=name;$('#cutShape').append(option);
   const row=document.createElement('div');row.className='row';
-  row.innerHTML=`<label style="width:80px" for="share-${name}"><i class="swatch" style="background:${SHAPE_COLORS[i]}"></i>${name}</label><input id="share-${name}" type="range" min="0" max="100" step="1" data-shape-share="${name}" aria-label="${name} share"><input type="number" min="0" max="100" step="1" data-shape-share="${name}" aria-label="${name} share value"><button class="share-lock" data-shape-lock="${name}" aria-label="lock ${name} percentage" aria-pressed="false">🔓</button>`;
+  row.innerHTML=`<label style="width:80px" for="share-${name}"><i class="swatch" style="background:${SHAPE_COLORS[i]}"></i>${name}</label><input id="share-${name}" type="range" min="0" max="100" step="1" data-shape-share="${name}" aria-label="${name} share"><input type="number" min="0" max="100" step="1" data-shape-share="${name}" aria-label="${name} share value"><button class="share-lock" data-shape-lock="${name}" aria-label="lock ${name} percentage" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="5" y="10" width="14" height="11" rx="2"/><path class="lock-open" d="M9 10V6a4 4 0 0 1 8 0"/><path class="lock-closed" d="M8 10V6a4 4 0 0 1 8 0v4"/></svg></button>`;
   row.querySelector('button').onclick=()=>{beginHistory();st.cut.shape_locks??={};st.cut.shape_locks[name]=!st.cut.shape_locks[name];syncShares();finishHistory();};
   const [range,num]=row.querySelectorAll('input');
   const set=value=>{setShapeShare(name,value);draw(true);};
@@ -221,7 +208,7 @@ async function updateRelief() {
   } catch(e){$('#reliefStatus').textContent=e.message;}
   finally{lumRequest=false;if(lumQueued){lumQueued=false;updateRelief();}}
 }
-$('#reliefOpen').onclick=()=>{if(!$('#reliefDialog').open)$('#reliefDialog').show();viewerPosition();lumVersion++;updateRelief();};
+$('#reliefOpen').onclick=()=>{if(!st.files.length)return toast('add an image or PDF to the canvas first');if(!$('#reliefDialog').open)$('#reliefDialog').show();viewerPosition();lumVersion++;updateRelief();};
 $('#reliefClose').onclick=()=>$('#reliefDialog').close();
 $('#reliefRefresh').onclick=()=>{lumVersion++;updateRelief();};
 $('#reliefLive').onchange=studioSchedule;
@@ -235,7 +222,7 @@ function initRelief() {
   const vs=shader(g.VERTEX_SHADER,`attribute vec3 position;attribute vec3 normal;uniform vec2 orbit;uniform vec2 scale;varying vec3 litNormal;varying float height;
     vec3 turn(vec3 p){float c=cos(orbit.x),s=sin(orbit.x);p=vec3(c*p.x-s*p.y,s*p.x+c*p.y,p.z);c=cos(orbit.y);s=sin(orbit.y);return vec3(p.x,c*p.y-s*p.z,s*p.y+c*p.z);}
     void main(){vec3 p=turn(position);litNormal=turn(normal);height=position.z;gl_Position=vec4(p.xy*scale,-p.z*.25,1.);}`);
-  const fs=shader(g.FRAGMENT_SHADER,`precision mediump float;varying vec3 litNormal;varying float height;void main(){vec3 n=normalize(litNormal);if(!gl_FrontFacing)n=-n;float light=.25+.75*max(0.,dot(n,normalize(vec3(-.4,.5,1.))));vec3 color=mix(vec3(.32,.52,.49),vec3(.90,.82,.61),clamp(height+0.5,0.,1.));gl_FragColor=vec4(color*light,1.);}`);
+  const fs=shader(g.FRAGMENT_SHADER,`precision mediump float;varying vec3 litNormal;varying float height;void main(){vec3 n=normalize(litNormal);if(!gl_FrontFacing)n=-n;float light=.25+.75*max(0.,dot(n,normalize(vec3(-.4,.5,1.))));vec3 color=mix(vec3(.48),vec3(.83),clamp(height+0.5,0.,1.));gl_FragColor=vec4(color*light,1.);}`);
   reliefProgram=g.createProgram();g.attachShader(reliefProgram,vs);g.attachShader(reliefProgram,fs);g.linkProgram(reliefProgram);
   if(!g.getProgramParameter(reliefProgram,g.LINK_STATUS))throw new Error(g.getProgramInfoLog(reliefProgram));
   reliefBuffer=g.createBuffer();g.enable(g.DEPTH_TEST);
@@ -252,7 +239,7 @@ function reliefSet(model) {
 function reliefDraw() {
   if(!reliefGL||!$('#reliefDialog').open)return;const g=reliefGL,c=reliefCanvas;
   c.width=Math.round(c.clientWidth*devicePixelRatio);c.height=Math.round(c.clientHeight*devicePixelRatio);g.viewport(0,0,c.width,c.height);
-  g.clearColor(.065,.085,.083,1);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);g.useProgram(reliefProgram);g.bindBuffer(g.ARRAY_BUFFER,reliefBuffer);
+  g.clearColor(.08,.08,.08,1);g.clear(g.COLOR_BUFFER_BIT|g.DEPTH_BUFFER_BIT);g.useProgram(reliefProgram);g.bindBuffer(g.ARRAY_BUFFER,reliefBuffer);
   for(const [name,offset] of [['position',0],['normal',12]]){const a=g.getAttribLocation(reliefProgram,name);g.enableVertexAttribArray(a);g.vertexAttribPointer(a,3,g.FLOAT,false,24,offset);}
   g.uniform2f(g.getUniformLocation(reliefProgram,'orbit'),...orbit);
   const aspect=c.width/c.height;g.uniform2f(g.getUniformLocation(reliefProgram,'scale'),1.5*reliefZoom/Math.max(1,aspect),1.5*reliefZoom*Math.min(1,aspect));g.drawArrays(g.TRIANGLES,0,reliefSize);
@@ -277,10 +264,22 @@ viewerMoveHandle.onkeydown=e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDow
 addEventListener('resize',()=>{viewerPosition();reliefDraw();});
 
 // Knife playground. The path is normalized to a reusable stencil when lifted.
-const mat=$('#knifeCanvas'),matCtx=mat.getContext('2d'),sheet={x:150,y:95,w:700,h:460};
+const mat=$('#knifeCanvas'),matCtx=mat.getContext('2d'),sheet={x:0,y:0,w:1000,h:650};
+const knifeDialog=$('#knifeDialog');
+$('#frame').append(mat);mat.hidden=true;
+// Keep the mat on the canvas so controls and the document remain in context.
+$('#stage').append(knifeDialog);knifeDialog.setAttribute('aria-modal','false');
+$('#knifeOpen').setAttribute('aria-controls','knifeDialog');$('#knifeOpen').setAttribute('aria-expanded','false');
+function knifeSize(){
+  if(!knifeDialog.open)return;
+  const frame=$('#frame');if(!frame.clientWidth)return;
+  mat.width=1000;mat.height=Math.max(1,Math.round(1000*frame.clientHeight/frame.clientWidth));
+  Object.assign(sheet,{x:0,y:0,w:mat.width,h:mat.height});knifeRender();
+}
+new ResizeObserver(knifeSize).observe($('#frame'));
 let knifeMode='free',knifeStrokes=[],knifeSealed=null,knifePointer=null,knifeDown=false,knifeShavings=[],knifeFrame=0,knifeSound=false,knifeAudio,knifeAudioAt=0,liftTime=0,knifeSavedId='',knifeApplied=false;
 function knifeSnapshot(){return {strokes:knifeStrokes,sealed:knifeSealed,savedId:knifeSavedId,applied:knifeApplied,status:$('#knifeStatus').textContent};}
-const knifeHistory=StudioMath.history(knifeSnapshot());
+let knifeHistory=StudioMath.history(knifeSnapshot());
 function knifeHistoryButtons(){$('#knifeUndo').disabled=!knifeHistory.canUndo;$('#knifeRedo').disabled=!knifeHistory.canRedo;}
 function knifeCommit(){knifeHistory.record(knifeSnapshot());knifeHistoryButtons();}
 function knifeRestore(state){
@@ -305,35 +304,31 @@ function knifeTone() {
 }
 function knifeSoundSync(){$('#knifeSound').setAttribute('aria-pressed',String(knifeSound));$('#knifeSound').title='Cutting sound '+(knifeSound?'on':'off');$('#knifeSoundWaves').toggleAttribute('hidden',!knifeSound);$('#knifeSoundMute').toggleAttribute('hidden',knifeSound);}
 function knifePaint(now=performance.now()) {
-  knifeFrame=0;if(!$('#knifeDialog').open)return;const c=matCtx;c.clearRect(0,0,1000,650);c.fillStyle='#193d37';c.fillRect(0,0,1000,650);
-  c.lineWidth=1;c.strokeStyle='#2f554b';c.beginPath();for(let x=0;x<1000;x+=25){c.moveTo(x,0);c.lineTo(x,650);}for(let y=0;y<650;y+=25){c.moveTo(0,y);c.lineTo(1000,y);}c.stroke();
-  c.strokeStyle='#45675a';c.beginPath();for(let x=0;x<1000;x+=100){c.moveTo(x,0);c.lineTo(x,650);}for(let y=0;y<650;y+=100){c.moveTo(0,y);c.lineTo(1000,y);}c.stroke();
-  c.font='12px monospace';c.fillStyle='#81a58a';for(let x=100;x<1000;x+=100)c.fillText(String(x/10),x+3,20);
-  c.save();c.shadowColor='#071c19';c.shadowBlur=25;c.shadowOffsetY=12;c.fillStyle='#e7d8b6';c.fillRect(sheet.x,sheet.y,sheet.w,sheet.h);c.restore();
-  const image=$('#view');if(image.complete&&image.naturalWidth){c.save();c.globalAlpha=.48;c.drawImage(image,sheet.x,sheet.y,sheet.w,sheet.h);c.restore();}
+  knifeFrame=0;if(!knifeDialog.open)return;const c=matCtx;c.clearRect(0,0,mat.width,mat.height);
   const pts=knifePath();
   if(pts.length){c.beginPath();c.moveTo(sheet.x+pts[0][0]*sheet.w,sheet.y+pts[0][1]*sheet.h);for(const [x,y]of pts.slice(1))c.lineTo(sheet.x+x*sheet.w,sheet.y+y*sheet.h);
-    c.lineWidth=4;c.strokeStyle='#7b6244';c.stroke();c.lineWidth=1.5;c.strokeStyle='#fff3ce';c.stroke();
-    const [x,y]=pts[0];c.beginPath();c.arc(sheet.x+x*sheet.w,sheet.y+y*sheet.h,9,0,Math.PI*2);c.strokeStyle='#d67947';c.lineWidth=2;c.stroke();}
+    c.lineWidth=4;c.strokeStyle='#333';c.stroke();c.lineWidth=1.5;c.strokeStyle='#fff';c.stroke();
+    const [x,y]=pts[0];c.beginPath();c.arc(sheet.x+x*sheet.w,sheet.y+y*sheet.h,9,0,Math.PI*2);c.strokeStyle='#fff';c.lineWidth=5;c.stroke();c.strokeStyle='#111';c.lineWidth=2;c.stroke();}
   if(knifeSealed){const lift=Math.min(1,(now-liftTime)/450);c.save();c.translate(0,-lift*15);c.beginPath();const first=knifeSealed[0];c.moveTo(sheet.x+first[0]*sheet.w,sheet.y+first[1]*sheet.h);for(const [x,y]of knifeSealed.slice(1))c.lineTo(sheet.x+x*sheet.w,sheet.y+y*sheet.h);c.closePath();
-    c.shadowColor='#071c1988';c.shadowBlur=16;c.shadowOffsetY=14;c.fillStyle='#f4e9cc';c.fill();c.shadowBlur=0;c.lineWidth=2;c.strokeStyle='#d39e4d';c.stroke();c.restore();}
+    c.fillStyle='#ffffff22';c.fill();c.lineWidth=4;c.strokeStyle='#111';c.stroke();c.lineWidth=1.5;c.strokeStyle='#fff';c.stroke();c.restore();}
   knifeShavings=knifeShavings.filter(p=>now-p.t<800);
   for(const p of knifeShavings){const age=(now-p.t)/800;c.save();c.globalAlpha=1-age;c.translate(p.x+p.vx*age,p.y+p.vy*age+40*age*age);c.rotate(p.r+age*3);c.fillStyle=p.color;c.fillRect(-2,-1,8,3);c.restore();}
   if(knifePointer){const [x,y]=knifePointer;c.save();c.translate(x,y);c.rotate(-.65);c.shadowColor='#0008';c.shadowBlur=7;c.shadowOffsetY=5;
-    c.fillStyle='#d6dedc';c.beginPath();c.moveTo(0,0);c.lineTo(13,-30);c.lineTo(-4,-23);c.closePath();c.fill();c.shadowBlur=0;
-    c.fillStyle='#e9b339';c.fillRect(-7,-112,18,83);c.fillStyle='#282a27';for(let i=0;i<5;i++)c.fillRect(-5,-101+i*12,14,4);c.fillStyle='#767b72';c.fillRect(-4,-43,12,7);c.restore();}
+    c.fillStyle='#ddd';c.beginPath();c.moveTo(0,0);c.lineTo(13,-30);c.lineTo(-4,-23);c.closePath();c.fill();c.shadowBlur=0;
+    c.fillStyle='#eee';c.fillRect(-7,-112,18,83);c.fillStyle='#333';for(let i=0;i<5;i++)c.fillRect(-5,-101+i*12,14,4);c.fillStyle='#888';c.fillRect(-4,-43,12,7);c.restore();}
   if(knifeShavings.length||knifeSealed&&now-liftTime<450)knifeFrame=requestAnimationFrame(knifePaint);
 }
 function knifeRender(){if(!knifeFrame)knifeFrame=requestAnimationFrame(knifePaint);}
 function knifeReset(){knifeFinishGesture();knifeStrokes=[];knifeSealed=null;knifeSavedId='';knifeApplied=false;knifeShavings=[];knifeDown=false;$('#knifeUse').disabled=true;$('#stencilSave').disabled=!st.cut.custom_shape.length;$('#knifeStatus').textContent='fresh sheet · start anywhere on the paper';knifeCommit();knifeRender();}
-function knifeSetMode(mode){knifeMode=mode;$('#knifeFree').classList.toggle('on',mode==='free');$('#knifePrecision').classList.toggle('on',mode==='points');$('#knifeHelp').textContent=mode==='free'?'hold and drag to cut · return to the orange start ring to close your shape':'click to place each corner · click the orange start ring or seal & lift to finish';}
-$('#knifeOpen').onclick=()=>{$('#knifeDialog').showModal();knifeRender();};
-$('#knifeClose').onclick=()=>$('#knifeDialog').close();
+function knifeSetMode(mode){knifeMode=mode;$('#knifeFree').classList.toggle('on',mode==='free');$('#knifePrecision').classList.toggle('on',mode==='points');$('#knifeHelp').textContent=mode==='free'?'hold and drag to cut · return to the start ring to close your shape':'click to place each corner · click the start ring or seal & lift to finish';}
+$('#knifeOpen').onclick=()=>{if(!st.files.length)return toast('add an image or PDF to cut on the canvas');if(!knifeDialog.open)knifeDialog.show();mat.hidden=false;$('#stage').classList.add('cutting-active');$('#knifeOpen').setAttribute('aria-expanded','true');knifeSize();knifeRender();mat.focus({preventScroll:true});};
+$('#knifeClose').onclick=()=>knifeDialog.close();
 $('#knifeFree').onclick=()=>{knifeFinishGesture();knifeSetMode('free');};$('#knifePrecision').onclick=()=>{knifeFinishGesture();knifeSetMode('points');};
 $('#knifeSound').onclick=()=>{knifeSound=!knifeSound;knifeSoundSync();};
 $('#knifeNew').onclick=knifeReset;
 $('#knifeUndo').onclick=knifeUndoAction;$('#knifeRedo').onclick=knifeRedoAction;
 mat.onpointerdown=e=>{
+  if(e.button!==0)return;
   const xy=knifeCoordinates(e);knifePointer=xy;if(!onSheet(xy)||knifeSealed)return;mat.setPointerCapture(e.pointerId);
   const point=paperPoint(xy),pts=knifePath();
   if(knifeMode==='points'&&pts.length>=3&&Math.hypot((point[0]-pts[0][0])*sheet.w,(point[1]-pts[0][1])*sheet.h)<18){knifeSeal();return;}
@@ -344,17 +339,18 @@ mat.onpointermove=e=>{
   if(knifeDown&&onSheet(xy)){
     const stroke=knifeStrokes.at(-1),point=paperPoint(xy),last=stroke.at(-1);
     if(Math.hypot((point[0]-last[0])*sheet.w,(point[1]-last[1])*sheet.h)>3){stroke.push(point);knifeTone();
-      for(let i=0;i<2;i++)knifeShavings.push({x:xy[0],y:xy[1],vx:(Math.random()-.5)*90,vy:-Math.random()*65,r:Math.random()*6,t:performance.now(),color:'#ead9ab'});
+      for(let i=0;i<2;i++)knifeShavings.push({x:xy[0],y:xy[1],vx:(Math.random()-.5)*90,vy:-Math.random()*65,r:Math.random()*6,t:performance.now(),color:'#ddd'});
     }
   }knifeRender();
 };
 mat.onpointerup=()=>{if(knifeDown){knifeDown=false;const pts=knifePath();if(pts.length>12&&Math.hypot((pts[0][0]-pts.at(-1)[0])*sheet.w,(pts[0][1]-pts.at(-1)[1])*sheet.h)<18)knifeSeal();else $('#knifeStatus').textContent='blade up · continue the outline or seal & lift';knifeCommit();}knifeRender();};
 mat.onpointercancel=()=>{knifeFinishGesture();knifeRender();};
 mat.onpointerleave=()=>{if(!knifeDown){knifePointer=null;knifeRender();}};
-mat.onfocus=()=>{knifePointer??=[500,325];knifeRender();};
+mat.onfocus=()=>{knifePointer??=[sheet.w/2,sheet.h/2];knifeRender();};
 mat.onkeydown=e=>{
+  if(e.key==='Escape'){e.preventDefault();knifeDialog.close();return;}
   if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown',' ','Enter'].includes(e.key)||knifeSealed)return;
-  e.preventDefault();knifePointer??=[500,325];
+  e.preventDefault();knifePointer??=[sheet.w/2,sheet.h/2];
   if(e.key==='Enter'){knifeFinishGesture();knifeSeal();return;}
   if(e.key===' '){
     if(knifeMode==='points')knifeStrokes.push([paperPoint(knifePointer)]);
@@ -367,7 +363,8 @@ mat.onkeydown=e=>{
     if(knifeDown){knifeStrokes.at(-1).push(paperPoint(knifePointer));knifeTone();}
   }knifeRender();
 };
-$('#knifeDialog').addEventListener('close',()=>{knifeFinishGesture();cancelAnimationFrame(knifeFrame);knifeFrame=0;});
+knifeDialog.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if($('#knifeSettings').open){$('#knifeSettings').open=false;$('#knifeSettings summary').focus();}else knifeDialog.close();}});
+knifeDialog.addEventListener('close',()=>{knifeFinishGesture();cancelAnimationFrame(knifeFrame);knifeFrame=0;mat.hidden=true;$('#stage').classList.remove('cutting-active');$('#knifeSettings').open=false;$('#knifeOpen').setAttribute('aria-expanded','false');$('#knifeOpen').focus({preventScroll:true});});
 function simplified(points,tolerance=.002) {
   if(points.length<=2)return points;const a=points[0],b=points.at(-1),dx=b[0]-a[0],dy=b[1]-a[1],length=dx*dx+dy*dy;let best=0,index=0;
   for(let i=1;i<points.length-1;i++){const p=points[i],t=length?Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/length)):0,d=Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);if(d>best){best=d;index=i;}}
@@ -384,7 +381,7 @@ function knifeSeal(){
   for(let i=0;i<pts.length;i++)for(let j=i+2;j<pts.length;j++){if(i===0&&j===pts.length-1)continue;if(crossing(pts[i],pts[(i+1)%pts.length],pts[j],pts[(j+1)%pts.length])){$('#knifeStatus').textContent='your cuts cross · undo a stroke and leave one clear outline';return;}}
   if(pts.length>512){$('#knifeStatus').textContent='too many tiny edges · try a smoother outline';return;}
   knifeSealed=pts;knifeSavedId='';knifeApplied=false;liftTime=performance.now();$('#knifeUse').disabled=false;$('#stencilSave').disabled=false;$('#knifeStatus').textContent=`clean lift! · ${Math.round(area*100)}% of the sheet · stencil ready`;
-  for(let i=0;i<36;i++)knifeShavings.push({x:500,y:325,vx:(Math.random()-.5)*450,vy:-Math.random()*250,r:Math.random()*6,t:liftTime,color:SHAPE_COLORS[i%SHAPE_COLORS.length]});knifeCommit();knifeRender();
+  for(let i=0;i<36;i++)knifeShavings.push({x:500,y:325,vx:(Math.random()-.5)*450,vy:-Math.random()*250,r:Math.random()*6,t:liftTime,color:['#fff','#ddd','#aaa'][i%3]});knifeCommit();knifeRender();
 }
 $('#knifeSeal').onclick=knifeSeal;
 function fittedStencil(points){const xs=points.map(p=>p[0]),ys=points.map(p=>p[1]),x=Math.min(...xs),y=Math.min(...ys),w=Math.max(...xs)-x,h=Math.max(...ys)-y;return points.map(([px,py])=>[+((px-x)/w).toFixed(5),+((py-y)/h).toFixed(5)]);}
@@ -395,3 +392,20 @@ $('#knifeUse').onclick=async()=>{
   if($('#knifeSaveLibrary').checked)await saveCurrentStencil($('#stencilSave'));
 };
 studioSync();
+// Initial values are captured after linked sizing has settled; global reset can
+// restore these without removing sources or touching the saved-stencil library.
+window.studioDefaults=copy({cut:st.cut,lum:st.lum,exportMode:st.exportMode,lumFmt:st.lumFmt,
+  map:{node_by_shape:st.map.node_by_shape,node_end_shapes:st.map.node_end_shapes}});
+window.studioReset=function(){
+  if(knifeDialog.open)knifeDialog.close();if($('#reliefDialog').open)$('#reliefDialog').close();
+  const defaults=copy(window.studioDefaults);
+  st.cut=defaults.cut;st.lum=defaults.lum;st.exportMode=defaults.exportMode;st.lumFmt=defaults.lumFmt;Object.assign(st.map,defaults.map);
+  clearTimeout(lumTimer);lumVersion++;lumQueued=false;lastCutCounts={};
+  showCleatPreview=true;orbit=[-.65,-.55];reliefZoom=1;reliefDrag=null;viewerDrag=null;
+  $('#reliefDialog').style.left='';$('#reliefDialog').style.top='';$('#reliefLive').checked=true;$('#reliefStatus').textContent='';
+  $('#cleatOptions').open=false;$('#knifeSettings').open=false;$('#knifeSaveLibrary').checked=false;$('#stencilLibraryStatus').textContent='';stencilMenu(false);
+  knifeStrokes=[];knifeSealed=null;knifePointer=null;knifeDown=false;knifeShavings=[];knifeSavedId='';knifeApplied=false;
+  knifeSound=false;knifeSoundSync();knifeSetMode('free');$('#knifeStatus').textContent='fresh sheet · start anywhere on the paper';
+  $('#knifeUse').disabled=true;$('#stencilName').value='';knifeHistory=StudioMath.history(knifeSnapshot());knifeHistoryButtons();
+  studioSync();
+};

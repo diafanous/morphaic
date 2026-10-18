@@ -1,0 +1,39 @@
+/* v0.2.1 test: brighter labels and clearer grayscale separation. */
+:root{--bg:#171717;--panel:#202020;--stage:#101010;--line:#414141;--fg:#f4f4f4;--dim:#b6b6b6;--scroll:#6a6a6a}
+@media(prefers-color-scheme:light){:root{--bg:#ededed;--panel:#f9f9f9;--stage:#dddddd;--line:#c0c0c0;--fg:#191919;--dim:#595959;--scroll:#919191}}
+body{font-size:13px;grid-template-columns:1fr 400px}
+header{gap:9px}
+header #go{font-size:12px;max-width:120px}
+#resetAll{font-size:22px}
+header #ms{font-size:10px}
+#panelTitle{font-size:14px}
+#tools{z-index:1;gap:14px}
+.panel-disclosure>summary h2{font-weight:500;color:var(--fg)}
+.panel-disclosure>summary{padding:2px 0}
+input[type=range]::-webkit-slider-runnable-track{height:3px}
+input[type=range]::-webkit-slider-thumb{width:12px;height:12px;margin-top:-4.5px}
+input[type=range]::-moz-range-track,input[type=range]::-moz-range-progress{height:3px}
+input[type=range]::-moz-range-thumb{width:12px;height:12px}
+.note{font-size:12px;line-height:1.6}
+#gradientPreview{height:26px;border:1px solid var(--dim);margin:0 0 14px}
+.gradient-stop{display:grid;grid-template-columns:24px 1fr 52px 20px 24px;gap:8px;align-items:center;margin-bottom:12px}
+.gradient-stop input[type=range]{width:100%}
+.gradient-stop input[type=number]{width:52px}
+.gradient-stop button{font-size:18px;text-align:center}
+#grainName{overflow-wrap:anywhere}
+#grainImport,#grainClear,#gradientAdd,#gradientReverse{border:1px solid var(--line);padding:4px 7px}
+#grainDisclosure .row{flex-wrap:wrap}
+#canvasMenu{position:fixed;z-index:30;min-width:235px;max-width:calc(100vw - 16px);padding:6px;background:var(--panel);border:1px solid var(--dim);box-shadow:0 12px 32px #00000077}
+#canvasMenu button{display:block;box-sizing:border-box;width:100%;padding:9px 11px;color:var(--fg);text-align:left}
+#canvasMenu button:hover,#canvasMenu button:focus-visible{background:var(--line)}
+#canvasMenu button:disabled{opacity:.4;cursor:default}
+#resetDialog{margin:auto;max-width:min(440px,calc(100vw - 32px));padding:24px;background:var(--panel);color:var(--fg);border:1px solid var(--dim)}
+#resetDialog::backdrop{background:#00000099}
+#resetDialog h2{font-size:16px;color:var(--fg)}
+#resetDialog p{margin-bottom:20px}
+#resetDialog footer{display:flex;justify-content:flex-end;gap:12px;margin-top:24px}
+#resetDialog button{border:1px solid var(--dim);padding:7px 12px;color:var(--fg)}
+#confirmReset{background:var(--fg);color:var(--bg)!important}
+#toast{z-index:40}
+button:disabled{cursor:default}
+@media(max-width:760px){body{grid-template-columns:1fr;grid-template-rows:55vh 1fr}header{gap:12px}}

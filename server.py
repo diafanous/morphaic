@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib.parse import unquote
 
 import collage
+import indesign
 import luminosity
 import shapes
 
@@ -161,7 +162,7 @@ if getattr(sys, "frozen", False):
     # is stable across launches and changes when the bundled app is replaced.
     STAMP = str(Path(sys.executable).stat().st_mtime_ns)
 else:
-    STAMP = str(max((ROOT / f).stat().st_mtime_ns for f in ("collage.py", "server.py", "luminosity.py", "mounting.py", "shapes.py", "index.html", "studio.js", "controls.js")))
+    STAMP = str(max((ROOT / f).stat().st_mtime_ns for f in ("collage.py", "effects.py", "server.py", "luminosity.py", "mounting.py", "shapes.py", "index.html", "studio.js", "controls.js", "iteration.js", "ui.css", "iteration.css", "glass.css", "canvas.js", "templates.js", "indesign.py")))
 EXT = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".bmp", ".gif", ".pdf", ".heic", ".heif"}
 
 
@@ -231,12 +232,20 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, STAMP.encode(), "text/plain")
             elif self.path == '/export-settings':
                 self.reply(200, {'folder': str(EXPORT_FOLDER), 'map_defaults': map_defaults()})
+            elif self.path == '/preferences':
+                self.reply(200, {'skip_reset_warning': bool(read_settings().get('skip_reset_warning', False))})
+            elif self.path == '/indesign/status':
+                self.reply(200, {'available': indesign.available()})
             elif self.path == '/stencils':
                 self.reply(200, {'stencils': stencil_library()})
             elif self.path == "/":
                 self.reply(200, (ROOT / "index.html").read_bytes(), "text/html; charset=utf-8")
-            elif self.path in ('/studio.js', '/controls.js'):
+            elif self.path in ('/studio.js', '/controls.js', '/iteration.js', '/canvas.js', '/templates.js'):
                 self.reply(200, (ROOT / self.path[1:]).read_bytes(), 'text/javascript; charset=utf-8')
+            elif self.path in ('/ui.css', '/iteration.css', '/glass.css'):
+                self.reply(200, (ROOT / self.path[1:]).read_bytes(), 'text/css; charset=utf-8')
+            elif self.path == '/favicon.ico':
+                self.reply(200, (ROOT / 'assets' / 'morphaic.ico').read_bytes(), 'image/x-icon')
             elif self.path.startswith("/font/") and self.path.endswith(".woff2") and self.path[6:-6] in ("Light", "Regular", "Medium"):
                 f = font(self.path[6:-6])
                 self.reply(200 if f else 404, f or b"", "font/woff2", Cache_Control="max-age=86400")
@@ -246,7 +255,23 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         def go():
-            if self.path == '/export-settings':
+            if self.path == '/indesign/template':
+                if int(self.headers.get('Content-Length') or 0) > indesign.MAX_TEMPLATE_BYTES:
+                    raise ValueError('Choose a template smaller than 150 MB.')
+                self.reply(200, indesign.import_template(unquote(self.headers.get('X-Name', 'template')), self.body()))
+            elif self.path == '/indesign/export':
+                req = json.loads(self.body())
+                data, name = indesign.export_template(req['p'], req['sources'], STORE, req.get('template', {}))
+                saved = save_export(data, name)
+                self.reply(200, {'path': str(saved), 'name': saved.name})
+            elif self.path == '/preferences':
+                req = json.loads(self.body())
+                value = req.get('skip_reset_warning')
+                if not isinstance(value, bool):
+                    raise ValueError('skip_reset_warning must be true or false')
+                update_settings({'skip_reset_warning': value})
+                self.reply(200, {'skip_reset_warning': value})
+            elif self.path == '/export-settings':
                 req = json.loads(self.body())
                 self.reply(200, {'folder': str(set_export_folder(str(req['folder'])))})
             elif self.path == '/map-defaults':

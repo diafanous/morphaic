@@ -1,0 +1,115 @@
+/* Grayscale glass: transparent surfaces, neutral reflections, clear type. */
+:root{--glass:rgba(39,39,39,.78);--glass-card:rgba(255,255,255,.12);--glass-edge:rgba(255,255,255,.13);--glass-shine:rgba(255,255,255,.045);--fg:#f6f6f6;--dim:#c2c2c2;--line:#494949;--scroll:#8a8a8a}
+body{isolation:isolate;background:#181818}
+#stage{z-index:1;background:transparent;border-radius:22px;margin:10px 8px 10px 10px;box-shadow:none}
+aside{position:relative;z-index:1;padding:0 4px 0 18px;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;box-shadow:none}
+/* Keep the scrollbar four pixels from the edge, without crowding the controls. */
+#sideScroll,#settingsPanel{padding-right:12px;scrollbar-color:var(--scroll) transparent}
+header{height:62px;flex-basis:62px;padding-right:14px;gap:6px}
+header #panelTitle{letter-spacing:-.04em;font-size:15px}
+header #undo,header #redo,header #resetAll,header #settings{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--glass-edge);border-radius:8px;background:linear-gradient(145deg,#ffffff0d,#ffffff03);box-shadow:inset 0 1px 0 #ffffff0d}
+header #resetAll{font-size:22px}
+header #undo:hover:not(:disabled),header #redo:hover:not(:disabled),header #resetAll:hover,header #settings:hover,header #settings[aria-expanded=true]{background:var(--glass-card);border-color:var(--dim);color:var(--fg)}
+header #go{padding:6px 10px;border-radius:11px;border-color:rgba(255,255,255,.35);background:linear-gradient(145deg,#ffffff16,#ffffff05);box-shadow:inset 0 1px 0 #ffffff24,0 3px 9px #00000022}
+header #go:hover:not(:disabled){background:var(--fg);color:var(--bg)}
+section{margin-bottom:10px;padding:15px 14px 4px;border:1px solid var(--glass-edge);border-radius:17px;background:linear-gradient(135deg,var(--glass-shine),transparent 46%),var(--glass-card);box-shadow:inset 0 1px 0 #ffffff09,0 4px 14px #00000008}
+.panel-disclosure>summary{min-height:25px}
+.panel-disclosure:not([open]){padding-bottom:10px}
+.panel-disclosure>summary h2{color:var(--fg)}
+.panel-disclosure>summary::after{margin-right:2px}
+#tools,#canvasMenu,#stencilLibrary,#resetDialog,#motionDialog,#reliefDialog{border:1px solid var(--glass-edge);border-radius:18px;background:linear-gradient(135deg,var(--glass-shine),transparent 50%),var(--glass);backdrop-filter:blur(28px) saturate(130%);-webkit-backdrop-filter:blur(28px) saturate(130%);box-shadow:inset 0 1px 0 #ffffff1a,0 16px 45px #00000044}
+#tools{top:14px;left:14px;padding:7px 10px;gap:8px;box-shadow:inset 0 1px 0 #ffffff1a,0 6px 22px #00000022}
+#tools button{padding:4px 7px;border-radius:9px}
+#tools button:hover{background:#ffffff0d}
+#frame{box-shadow:0 0 0 1px #ffffff20,0 22px 65px #00000066}
+#empty{color:var(--dim)}
+input,select{border-bottom-color:var(--glass-edge)}
+input:not([type=range]):not([type=checkbox]):not([type=color]):not([type=file]){border-radius:5px;padding:2px 3px;background:#ffffff04}
+input:focus,select:focus{border-color:var(--fg)}
+input[type=range]::-webkit-slider-runnable-track{height:4px;border-radius:4px;background:linear-gradient(to right,#d2d2d2 var(--p),#ffffff18 var(--p));box-shadow:inset 0 1px 2px #00000033}
+input[type=range]::-webkit-slider-thumb{width:13px;height:13px;margin-top:-4.5px;background:linear-gradient(#ffffff,#dedede);box-shadow:0 1px 4px #00000066,0 0 0 1px #ffffff30}
+input[type=color]{border-radius:5px;overflow:hidden}
+#curve{border-radius:12px;background:#15151536}
+#knifeOpen,#stencilLibraryToggle,#grainImport,#grainClear,#gradientAdd,#gradientReverse{border-color:var(--glass-edge);border-radius:10px;background:linear-gradient(145deg,#ffffff0d,#ffffff03);box-shadow:inset 0 1px 0 #ffffff10}
+#cutTools{gap:6px;flex-wrap:wrap}
+#knifeOpen,#stencilLibraryToggle{padding:6px 8px}
+#gradientPreview{border-radius:9px;border-color:var(--glass-edge)}
+#canvasMenu button,#stencilLibrary button{border-radius:10px}
+#canvasMenu button:hover,#canvasMenu button:focus-visible,#stencilLibrary button:hover{background:#ffffff12}
+#resetDialog button{border-radius:10px}
+#toast{border-radius:12px;padding:9px 15px;box-shadow:0 6px 22px #00000033}
+#reliefTitlebar{border-radius:17px 17px 0 0;background:var(--glass);border-bottom-color:var(--glass-edge)}
+.viewer-actions button{border-radius:8px}
+#reliefCanvas{border-radius:12px}
+::-webkit-scrollbar{width:7px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{border:1px solid transparent;background-clip:padding-box;border-radius:10px}
+@media(prefers-color-scheme:light){
+  :root{--glass:rgba(249,249,249,.78);--glass-card:rgba(255,255,255,.22);--glass-edge:rgba(97,97,97,.19);--glass-shine:rgba(255,255,255,.24);--fg:#282828;--dim:#5e5e5e;--line:#bebebe;--scroll:#969696}
+  body{background:#e9e9e9}
+  section{box-shadow:inset 0 1px 0 #ffffff,0 4px 14px #42424206}
+  header #go{border-color:#82828255;background:linear-gradient(145deg,#ffffffb0,#ffffff35)}
+  #frame{box-shadow:0 0 0 1px #ffffffb0,0 22px 65px #3a3a3a2b}
+  input[type=range]::-webkit-slider-runnable-track{background:linear-gradient(to right,#737373 var(--p),#7a7a7a24 var(--p));box-shadow:inset 0 1px 2px #58585815}
+  input[type=range]::-webkit-slider-thumb{background:linear-gradient(#ffffff,#f4f4f4);box-shadow:0 1px 4px #34343438,0 0 0 1px #89898944}
+  input:not([type=range]):not([type=checkbox]):not([type=color]):not([type=file]){background:#ffffff50}
+  #canvasMenu button:hover,#canvasMenu button:focus-visible,#stencilLibrary button:hover,#tools button:hover{background:#7e7e7e16}
+  #curve{background:#ffffff40}
+}
+@media(max-width:760px){aside{border:0}#stage{margin:7px 7px 4px;border-radius:17px}header{height:56px;flex-basis:56px}}
+@media(prefers-reduced-transparency:reduce){#tools,#canvasMenu,#stencilLibrary,#resetDialog,#motionDialog,#reliefDialog{background:var(--panel);backdrop-filter:none;-webkit-backdrop-filter:none}section{background:var(--panel)}}
+
+/* Persistent drafting grid and a view transform shared by artwork and tools. */
+:root{--grid-size:25px;--grid-x:10px;--grid-y:10px;--grid-ink:#e4e4e40c}
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(var(--grid-ink) 1px,transparent 1px),linear-gradient(90deg,var(--grid-ink) 1px,transparent 1px);background-size:var(--grid-size) var(--grid-size);background-position:var(--grid-x) var(--grid-y)}
+#frame{z-index:1;transform-origin:center;will-change:transform}
+#empty{position:relative}
+#tools{z-index:5}
+#viewNavigation{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:9;display:flex;gap:10px;align-items:center;white-space:nowrap;padding:6px 10px;border-radius:13px;border:1px solid var(--glass-edge);background:var(--glass);backdrop-filter:blur(24px);box-shadow:inset 0 1px 0 #ffffff18,0 4px 15px #00000022}
+#viewNavigation button{padding:2px 5px;color:var(--fg)}
+#viewNavigation output{min-width:44px;text-align:center;font-size:12px}
+#stage.view-hand,#stage.view-hand canvas{cursor:grab!important}
+#stage.view-panning,#stage.view-panning canvas{cursor:grabbing!important}
+#stage #knifeCanvas{position:absolute;inset:0;width:100%;height:100%;max-width:none;max-height:none;background:transparent;filter:none;z-index:3;touch-action:none}
+#stage #knifeDialog{inset:12px;padding:0;background:transparent;border:0;box-shadow:none;pointer-events:none;overflow:visible;backdrop-filter:none}
+#stage #knifeDialog[open]{display:block}
+#stage #knifeTopbar,#stage #knifeDialog footer{pointer-events:auto;padding:10px;border:1px solid var(--glass-edge);border-radius:15px;background:var(--glass);backdrop-filter:blur(26px);box-shadow:inset 0 1px 0 #ffffff15,0 7px 20px #00000022}
+#stage #knifeTopbar{align-items:center}
+#stage #knifeTopbar h2{flex:1 1 100%;font-size:11px}
+#stage #knifeTopbar button,#stage #knifeTopbar summary{border-radius:8px;padding:5px 7px}
+#stage #knifeDialog footer{position:absolute;bottom:48px;right:0;gap:8px}
+#stage #knifeSettings .knife-menu-panel{pointer-events:auto;top:96px;max-height:calc(100% - 160px);border-radius:12px}
+#stage.cutting-active #tools{visibility:hidden}
+@media(min-width:1280px){#stage #knifeTopbar h2{flex:1 1 auto}#stage #knifeSettings .knife-menu-panel{top:60px}}
+@media(max-width:760px){#stage #knifeDialog{inset:7px}#stage #knifeTopbar h2{display:none}#stage #knifeTopbar{gap:4px;padding:6px}#stage #knifeTopbar button{font-size:10px;padding:4px 5px}#stage #knifeSettings .knife-menu-panel{top:53px}}
+@media(prefers-color-scheme:light){:root{--grid-ink:#5c5c5c14}}
+
+#templatePanel{margin:16px 0;padding:14px;min-width:0}
+.template-frame{display:grid;gap:6px;margin:14px 0}.template-frame span{font-size:11px;color:var(--dim);overflow-wrap:anywhere}.template-frame select{width:100%;min-width:0}#templateTitle{width:55%;min-width:0}#templateName{overflow-wrap:anywhere}
+
+
+.export-topline{flex-wrap:nowrap;gap:10px}.export-topline #exportfolder{min-width:0;width:0}.export-topline button{flex-shrink:0}
+
+body.desktop-window{grid-template-columns:minmax(0,1fr) 470px}
+.desktop-window header{gap:5px}
+.desktop-window #panelTitle{cursor:move;user-select:none}
+.desktop-window header>button{flex-shrink:0}
+#windowControls:not([hidden]){display:flex;align-items:center;flex-shrink:0;gap:2px;padding:3px;border:1px solid var(--glass-edge);border-radius:16px;background:linear-gradient(145deg,#ffffff20,#ffffff06),var(--glass);backdrop-filter:blur(16px);box-shadow:inset 0 1px 0 #ffffff28,0 3px 12px #00000025}
+#windowControls button{display:flex;align-items:center;justify-content:center;width:24px;height:24px;border:0;border-radius:50%;color:var(--dim)}
+#windowControls button:hover{color:var(--fg);background:var(--glass-card)}
+#windowControls button:focus-visible{outline:1px solid var(--fg);outline-offset:1px}
+#windowControls svg,#desktopResize svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.2;pointer-events:none}
+#desktopResize{position:fixed;right:0;bottom:0;width:16px;height:16px;z-index:50;cursor:nwse-resize;color:var(--dim);touch-action:none}
+
+body.controller-mode{grid-template-columns:minmax(0,1fr);grid-template-rows:1fr}
+.controller-mode>aside,.controller-mode #tools,.controller-mode #viewNavigation,.controller-mode #desktopResize{display:none!important}
+.controller-mode #stage{margin:0;border-radius:0}
+
+.window-resize-edge{position:fixed;z-index:60;touch-action:none}
+.edge-n,.edge-s{left:12px;right:12px;height:6px;cursor:ns-resize}
+.edge-n{top:0}.edge-s{bottom:0}
+.edge-e,.edge-w{top:12px;bottom:12px;width:6px;cursor:ew-resize}
+.edge-e{right:0}.edge-w{left:0}
+.edge-ne,.edge-nw,.edge-sw{width:12px;height:12px}
+.edge-ne{top:0;right:0;cursor:nesw-resize}.edge-nw{top:0;left:0;cursor:nwse-resize}.edge-sw{bottom:0;left:0;cursor:nesw-resize}
+.controller-mode .window-resize-edge{display:none}

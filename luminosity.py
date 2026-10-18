@@ -2,19 +2,124 @@
 import base64
 import io
 import math
+import os
 import struct
+from collections.abc import Sequence
 
+import numpy as np
 from PIL import Image, ImageFilter
 
 import collage
 import mounting
 
-MAX_VERTICES = 500_000
 MAX_MAP_PIXELS = 16_000_000
+# Exports reserve headroom for the rest of the app and the operating system.
+# This is a resource check, not a quality ceiling: larger machines can export
+# larger models without changing an arbitrary vertex limit.
+MEMORY_FRACTION = 0.6
+STL_CHUNK_FACES = 32_768
 SPEC = dict(width_mm=(1, 5000, 100), height_mm=(1, 5000, 100),
             relief_mm=(0, 100, 10), base_mm=(0.1, 50, 2),
-            spacing_mm=(0.05, 20, 0.5), gamma=(0.2, 5, 1),
+            spacing_mm=(0.01, 20, 0.5), gamma=(0.2, 5, 1),
             contrast=(0.1, 4, 1), smooth_mm=(0, 10, 0))
+
+
+class PackedTriples(Sequence):
+    """Compact mesh storage with tuple rows for the existing mesh consumers.
+
+    Export meshes avoid millions of Python tuples, floats and integer objects.
+    NumPy/Manifold consume the backing array directly; preview still returns
+    ordinary JSON-compatible lists.
+    """
+
+    def __init__(self, values):
+        self.values = values
+
+    def __len__(self):
+        return len(self.values)
+
+    def __getitem__(self, key):
+        value = self.values[key]
+        return value.tolist() if isinstance(key, slice) else tuple(value.tolist())
+
+    def __iter__(self):
+        for row in self.values:
+            yield tuple(row.tolist())
+
+    def __array__(self, dtype=None, copy=None):
+        result = np.asarray(self.values, dtype=dtype)
+        return result.copy() if copy else result
+
+
+def available_memory():
+    """Available physical RAM, when the host exposes it (Windows and POSIX)."""
+    if os.name == 'nt':
+        import ctypes
+
+        class MemoryStatus(ctypes.Structure):
+            _fields_ = [('length', ctypes.c_ulong), ('load', ctypes.c_ulong),
+                        ('total_physical', ctypes.c_ulonglong),
+                        ('available_physical', ctypes.c_ulonglong),
+                        ('total_pagefile', ctypes.c_ulonglong),
+                        ('available_pagefile', ctypes.c_ulonglong),
+                        ('total_virtual', ctypes.c_ulonglong),
+                        ('available_virtual', ctypes.c_ulonglong),
+                        ('extended_virtual', ctypes.c_ulonglong)]
+
+        status = MemoryStatus()
+        status.length = ctypes.sizeof(status)
+        if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return status.available_physical
+    else:
+        try:
+            return os.sysconf('SC_AVPHYS_PAGES') * os.sysconf('SC_PAGE_SIZE')
+        except (ValueError, OSError, AttributeError):
+            pass
+    return None
+
+
+def mesh_estimate(p, fmt=None):
+    """Counts, binary STL size and conservative peak working-memory estimate.
+
+    Counts are exact for the plain relief; mounting adds topology. The estimate
+    includes height-map conversion, packed mesh arrays, export buffers, and
+    larger conversion/boolean working space for 3DM and mounting.
+    """
+    nx = math.ceil(p['width_mm'] / p['spacing_mm']) + 1
+    ny = math.ceil(p['height_mm'] / p['spacing_mm']) + 1
+    vertices = nx * ny + 2 * nx + 2 * ny - 3
+    faces = 2 * vertices - 4
+    binary_bytes = 84 + 50 * faces
+    # RGB/grayscale image conversion, float64 vertices and uint32 faces.
+    memory = 24 * vertices + 12 * faces + 16 * nx * ny
+    if fmt == 'stl':
+        # A binary facet is 50 bytes; ASCII can be substantially larger.
+        memory += binary_bytes if p['encoding'] == 'binary' else 400 * faces
+    elif fmt == '3dm':
+        # Rhino mesh objects, encoded/base64 result and its decoded copy.
+        memory += 320 * vertices + 80 * faces
+    if p['cleat']:
+        # Boolean geometry and mounting's separate parts/combined Python lists.
+        memory += 700 * vertices + 300 * faces
+    return dict(grid=[nx, ny], vertices=vertices, triangles=faces,
+                binary_stl_bytes=binary_bytes,
+                estimated_memory_bytes=memory + 16 * 1024**2)
+
+
+def check_resources(p, fmt=None):
+    estimate = mesh_estimate(p, fmt)
+    if estimate['vertices'] > np.iinfo(np.uint32).max or (fmt == 'stl' and estimate['triangles'] > 0xffffffff):
+        raise ValueError('mesh exceeds the 32-bit mesh/STL index range; increase mesh spacing in mm or reduce model size')
+    available = available_memory()
+    if available and estimate['estimated_memory_bytes'] > available * MEMORY_FRACTION:
+        needed = estimate['estimated_memory_bytes'] / 1024**3
+        budget = available * MEMORY_FRACTION / 1024**3
+        size = estimate['binary_stl_bytes'] / 1024**3
+        raise ValueError(f'mesh needs approximately {needed:.2f} GiB of working memory '
+                         f'({budget:.2f} GiB available export budget); '
+                         f'plain binary STL would be {size:.2f} GiB. '
+                         'Close other apps, increase mesh spacing in mm or reduce model size')
+    return estimate
 
 
 def demo_image():
@@ -60,8 +165,7 @@ def grid_size(p, preview=False):
         # Keep the live viewer responsive; preserve the chosen quality in exports.
         ratio = max(1, (nx - 1) / 80, (ny - 1) / 80)
         return max(2, math.ceil((nx - 1) / ratio) + 1), max(2, math.ceil((ny - 1) / ratio) + 1)
-    if nx * ny + 2 * nx + 2 * ny - 3 > MAX_VERTICES:
-        raise ValueError('mesh exceeds 500,000 vertices; increase mesh spacing in mm or reduce model size')
+    check_resources(p)
     return nx, ny
 
 
@@ -101,28 +205,39 @@ def mesh(raw, specs, store, options, preview=False):
     p = clean(options)
     nx, ny = grid_size(p, preview)
     im = height_map(raw, specs, store, p, (nx, ny))
-    pixels = im.load()
-    vertices = [(x * p['width_mm'] / (nx - 1), y * p['height_mm'] / (ny - 1),
-                 p['base_mm'] + p['relief_mm'] * pixels[x, ny - 1 - y] / 255)
-                for y in range(ny) for x in range(nx)]
-    faces = []
-    for y in range(ny - 1):
-        for x in range(nx - 1):
-            a = y * nx + x
-            faces.extend(((a, a + 1, a + nx + 1), (a, a + nx + 1, a + nx)))
+    perimeter_count = 2 * nx + 2 * ny - 4
+    vertex_count = nx * ny + perimeter_count + 1
+    vertices = np.empty((vertex_count, 3), dtype=np.float64)
+    faces = np.empty((2 * vertex_count - 4, 3), dtype=np.uint32)
+    surface = vertices[:nx * ny].reshape(ny, nx, 3)
+    surface[:, :, 0] = np.linspace(0, p['width_mm'], nx)[None, :]
+    surface[:, :, 1] = np.linspace(0, p['height_mm'], ny)[:, None]
+    surface[:, :, 2] = p['base_mm'] + np.asarray(im)[::-1] * (p['relief_mm'] / 255)
+    columns = np.arange(nx - 1, dtype=np.uint32)
+    for y in range(0, ny - 1, 128):
+        end = min(y + 128, ny - 1)
+        a = (np.arange(y, end, dtype=np.uint32)[:, None] * nx + columns).ravel()
+        triangles = faces[2*y*(nx-1):2*end*(nx-1)].reshape(-1, 2, 3)
+        triangles[:, 0, 0], triangles[:, 0, 1], triangles[:, 0, 2] = a, a + 1, a + nx + 1
+        triangles[:, 1, 0], triangles[:, 1, 1], triangles[:, 1, 2] = a, a + nx + 1, a + nx
     # Counterclockwise perimeter, duplicate it at z=0, then close walls and base.
-    perimeter = (list(range(nx)) + [y * nx + nx - 1 for y in range(1, ny)] +
-                 [(ny - 1) * nx + x for x in range(nx - 2, -1, -1)] +
-                 [y * nx for y in range(ny - 2, 0, -1)])
-    start = len(vertices)
-    vertices.extend((vertices[i][0], vertices[i][1], 0) for i in perimeter)
-    center = len(vertices)
-    vertices.append((p['width_mm'] / 2, p['height_mm'] / 2, 0))
-    for k, a in enumerate(perimeter):
-        j = (k + 1) % len(perimeter)
-        b, c, d = perimeter[j], start + k, start + j
-        faces.extend(((a, c, d), (a, d, b), (center, d, c)))
-    model = dict(vertices=vertices, faces=faces, units='mm', grid=[nx, ny],
+    perimeter = np.concatenate((np.arange(nx, dtype=np.uint32),
+                                np.arange(1, ny, dtype=np.uint32) * nx + nx - 1,
+                                (ny - 1) * nx + np.arange(nx - 2, -1, -1, dtype=np.int64),
+                                np.arange(ny - 2, 0, -1, dtype=np.uint32) * nx)).astype(np.uint32)
+    start, center = nx * ny, vertex_count - 1
+    vertices[start:center, :2] = vertices[perimeter, :2]
+    vertices[start:center, 2] = 0
+    vertices[center] = (p['width_mm'] / 2, p['height_mm'] / 2, 0)
+    a, b = perimeter, np.roll(perimeter, -1)
+    c = np.arange(start, center, dtype=np.uint32)
+    d = np.roll(c, -1)
+    walls = faces[2*(nx-1)*(ny-1):].reshape(-1, 3, 3)
+    walls[:, 0, 0], walls[:, 0, 1], walls[:, 0, 2] = a, c, d
+    walls[:, 1, 0], walls[:, 1, 1], walls[:, 1, 2] = a, d, b
+    walls[:, 2, 0], walls[:, 2, 1], walls[:, 2, 2] = center, d, c
+    model = dict(vertices=vertices.tolist() if preview else PackedTriples(vertices),
+                faces=faces.tolist() if preview else PackedTriples(faces), units='mm', grid=[nx, ny],
                 width_mm=p['width_mm'], height_mm=p['height_mm'],
                 depth_mm=p['base_mm'] + p['relief_mm'], preview=preview)
     return mounting.apply(model,p,preview)
@@ -139,11 +254,21 @@ def stl(model, encoding):
     vertices, faces = model['vertices'], model['faces']
     buf = io.BytesIO()
     if encoding == 'binary':
+        if len(faces) > 0xffffffff:
+            raise ValueError('binary STL cannot contain more than 4,294,967,295 triangles')
         buf.write(b'morphaic luminosity relief; coordinates in millimeters'.ljust(80, b'\0'))
         buf.write(struct.pack('<I', len(faces)))
-        for face in faces:
-            a, b, c = [vertices[i] for i in face]
-            buf.write(struct.pack('<12fH', *normal(a, b, c), *a, *b, *c, 0))
+        points = np.asarray(vertices, dtype=np.float64)
+        indices = np.asarray(faces, dtype=np.uint32)
+        dtype = np.dtype([('normal', '<f4', (3,)), ('vertices', '<f4', (3, 3)), ('attribute', '<u2')])
+        for offset in range(0, len(faces), STL_CHUNK_FACES):
+            triangles = points[indices[offset:offset + STL_CHUNK_FACES]]
+            normals = np.cross(triangles[:, 1] - triangles[:, 0], triangles[:, 2] - triangles[:, 0])
+            lengths = np.linalg.norm(normals, axis=1)
+            normals /= np.where(lengths > 0, lengths, 1)[:, None]
+            records = np.zeros(len(triangles), dtype=dtype)
+            records['normal'], records['vertices'] = normals, triangles
+            buf.write(records.tobytes())
     else:
         buf.write(b'solid morphaic_mm\n')
         for face in faces:
@@ -191,6 +316,7 @@ def export(raw, specs, store, options, fmt):
                 **({'compression': 'tiff_deflate'} if fmt == 'tif' else {}))
         data = buf.getvalue()
     else:
+        check_resources(p, fmt)
         model = mesh(raw, specs, store, p)
         data = stl(model, p['encoding']) if fmt == 'stl' else three_dm(model)
     return data, f'collage-luminosity{"-mm" if fmt in ("stl", "3dm") else ""}.{fmt}'
