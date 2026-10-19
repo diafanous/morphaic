@@ -389,6 +389,26 @@ def test_heic_animation_and_triptych_exports():
     assert ImageChops.difference(triple.crop((55,0,103,36)),normal).getbbox() is None
 
 
+def test_gif_fits_the_chosen_size():
+    store, specs = {'n': C.open_source('noise.png', png(300, 200, 100)[1])}, [{'id': 'n', 'w': 3, 'page': 0}]
+    raw = dict(w=3, h=2, scatter=.6, layers=2, smoothness=4, pace=3)
+    big = C.export({**raw, 'gifmb': 50}, specs, store, 'gif')[0]
+    assert len(big) > 1_000_000 and Image.open(io.BytesIO(big)).width == 720              # noise: too big for 1 MB at full size
+    small = C.export({**raw, 'gifmb': 1}, specs, store, 'gif')[0]
+    gif = Image.open(io.BytesIO(small))
+    assert len(small) <= 1_000_000 and gif.is_animated and gif.width < 720 and gif.info['loop'] == 0
+    assert C.clean({'gifmb': 999})['gifmb'] == 50 and C.clean({'gifmb': 0})['gifmb'] == 1   # the dropdown's range is also enforced server-side
+    floor, C.GIF_MIN_EDGE = C.GIF_MIN_EDGE, 700                                            # a floor it can't meet: clear error, no huge file
+    try:
+        C.export({**raw, 'gifmb': 1}, specs, store, 'gif')
+    except ValueError as e:
+        assert "can't fit the GIF in 1 MB" in str(e)
+    else:
+        raise AssertionError('no error')
+    finally:
+        C.GIF_MIN_EDGE = floor
+
+
 def test_migration_node_boundaries_and_scaling():
     import math
     for scale in (.25,1,6):

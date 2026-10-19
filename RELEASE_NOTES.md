@@ -1,3 +1,7 @@
+# Unreleased
+
+- GIF export has a max-size dropdown (1, 2, 5, 10, 25, 50 MB; 50 MB is the cap). Frames shrink until the GIF fits.
+
 # Morphaic 1.0.1
 
 - Compact Cut, grain import, animation preview and controller-mode controls; stronger button backgrounds and aligned header edges.

@@ -291,6 +291,7 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     <div id="animsec" hidden>
       <div class="sl"><span>smoothness</span><output id="smoothnessv">12</output><input id="smoothness" type="range" min="4" max="24" step="1" value="12" aria-label="animation smoothness"></div>
       <div class="sl"><span>pace</span><output id="pacev">12 seconds</output><input id="pace" type="range" min="3" max="30" step="1" value="12" aria-label="animation duration"></div>
+      <div class="row" id="gifsizerow"><label class="grow" for="gifmb">max gif size</label><select id="gifmb" aria-label="maximum GIF file size"><option value="1">1 MB</option><option value="2">2 MB</option><option value="5">5 MB</option><option value="10">10 MB</option><option value="25">25 MB</option><option value="50" selected>50 MB</option></select></div>
       <div class="row animation-preview-row"><button id="animpreview">preview animation</button><span class="note">pace: time / smoothness: fps</span></div>
     </div>
     <input id="lines" type="checkbox" hidden>
@@ -385,7 +386,7 @@ const SL = {
 const P = {cw:.25,ch:.25}, SLIDER = {}, st = {files: [], w: 0, h: 0, touched: false, dpi: 300, fmt: 'png', bg: '#f4f2ee', unit: 'in', seed: 1,
   grid: false,   // guide grid overlay on the preview
   // migration map, per layer: tone, line opacity, paper colour, paper opacity (0 = no paper)
-  map: {smoothness: 12, pace: 12, node_start: 'dot', node_end: 'arrow', node_end_size: 1, m1c: '#8a8a90', m1o: .8, m1p: '#f4f2ee', m1a: 1, m2c: '#ff5a36', m2o: .8, m2p: '#f4f2ee', m2a: 0, m3c: '#18181b', m3o: 1, m3p: '#f4f2ee', m3a: 0}};
+  map: {smoothness: 12, pace: 12, gifmb: 50, node_start: 'dot', node_end: 'arrow', node_end_size: 1, m1c: '#8a8a90', m1o: .8, m1p: '#f4f2ee', m1a: 1, m2c: '#ff5a36', m2o: .8, m2p: '#f4f2ee', m2a: 0, m3c: '#18181b', m3o: 1, m3p: '#f4f2ee', m3a: 0}};
 const show = v => +(v * UN[st.unit]).toFixed(Math.abs(v * UN[st.unit]) < .1 ? 4 : st.unit === 'mm' ? 1 : 2);
 const toIn = v => v / UN[st.unit];
 
@@ -437,7 +438,7 @@ function restoreEdit(s) {
   $('#seedn').textContent = st.seed;
   document.querySelectorAll('#lum2d button').forEach(b => b.classList.toggle('on', b.dataset.f === st.fmt));
   $('#mapsec').hidden = !['map','triptych'].includes(st.fmt);
-  $('#animsec').hidden = !['gif', 'mp4'].includes(st.fmt); motionLabels();
+  $('#animsec').hidden = !['gif', 'mp4'].includes(st.fmt); $('#gifsizerow').hidden = st.fmt !== 'gif'; motionLabels();
   for (const [id, value] of Object.entries(st.map)) {
     const el = $('#' + id); if (!el) continue; el.value = value;
     if (el.type === 'range') el.style.setProperty('--p', (value-el.min)/(el.max-el.min)*100 + '%');
@@ -621,7 +622,7 @@ $('#dpi').oninput = () => { if (+$('#dpi').value > 0) { st.dpi = +$('#dpi').valu
 function selectExportFormat(f) {
   if (!f) return;
   st.fmt = f;
-  $('#mapsec').hidden = !['map','triptych'].includes(f); $('#animsec').hidden = !['gif', 'mp4'].includes(f); outUI(); draw(false);
+  $('#mapsec').hidden = !['map','triptych'].includes(f); $('#animsec').hidden = !['gif', 'mp4'].includes(f); $('#gifsizerow').hidden = f !== 'gif'; outUI(); draw(false);
 }
 $('#fmt').onchange = e => selectExportFormat(e.target.value);
 $('#lum2d').onclick = e => selectExportFormat(e.target.dataset.f);

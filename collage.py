@@ -42,7 +42,7 @@ SPEC = dict(
     w=(0.001, 200, 8.5), h=(0.001, 200, 11), dpi=(10, 1200, 300), pv=(200, 3000, 1000),  # canvas in, dpi, preview px
     m1o=(0, 1, 0.8), m2o=(0, 1, 0.8), m3o=(0, 1, 1),          # migration map: line opacity per layer
     m1a=(0, 1, 1), m2a=(0, 1, 0), m3a=(0, 1, 0),              # migration map: paper opacity per layer (0 = no paper)
-    smoothness=(4, 24, 12), pace=(3, 30, 12),
+    smoothness=(4, 24, 12), pace=(3, 30, 12), gifmb=(1, 50, 50),   # animation: frame rate, seconds; GIF size cap in MB
     node_end_size=(0.25, 6, 1),
 )
 COLORS = dict(bg="#f4f2ee", m1c="#8a8a90", m2c="#ff5a36", m3c="#18181b",   # canvas, map tone per layer
@@ -637,6 +637,16 @@ def animation_frames(raw, specs, store):
         yield final.copy()
 
 
+GIF_MIN_EDGE = 120   # smallest long edge, in px, the size-fitting loop will shrink a GIF to
+
+
+def _gif_bytes(frames, duration):
+    buf = io.BytesIO()
+    frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], duration=duration,
+                   loop=0, disposal=2, optimize=False)
+    return buf.getvalue()
+
+
 def process_gif(raw, specs, store):
     p = clean(raw)
     count, fps = animation_timing(p)
@@ -650,10 +660,16 @@ def process_gif(raw, specs, store):
     palette = atlas.quantize(colors=256)
     frames = [im.quantize(palette=palette,dither=Image.Dither.NONE) for im in animation_frames(raw,specs,store)]
     duration = [max(10,(round((i+1)*100/fps)-round(i*100/fps))*10) for i in range(count)]
-    buf = io.BytesIO()
-    frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], duration=duration,
-                   loop=0, disposal=2, optimize=False)
-    return buf.getvalue()
+    limit, data, scale = p['gifmb'] * 1_000_000, _gif_bytes(frames, duration), 1.0   # decimal MB, so also under the same number of MiB
+    while len(data) > limit:
+        # file size follows pixel area: shrink by the square root of the overshoot, plus 8% margin
+        scale *= max(.3, (limit / len(data)) ** .5 * .92)
+        size = (max(1, round(frames[0].width * scale)), max(1, round(frames[0].height * scale)))
+        if max(size) < GIF_MIN_EDGE:
+            raise ValueError(f"can't fit the GIF in {p['gifmb']:g} MB: choose a bigger size, a shorter pace or lower smoothness")
+        data = _gif_bytes([f.convert('RGB').resize(size, Image.LANCZOS).quantize(palette=palette, dither=Image.Dither.NONE)
+                           for f in frames], duration)
+    return data
 
 
 def process_mp4(raw, specs, store):

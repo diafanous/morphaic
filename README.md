@@ -60,7 +60,7 @@ Version 0.1.3 adds up to 16 layers, Ctrl+Z/Ctrl+Y edit history, a fixed sidebar 
 
 Version 0.1.4 adds native Mac builds and a lightweight TXT export of slider values, tone curves, drawing guide points, source metadata, and map settings. The TXT file contains readable UTF-8 JSON and does not embed source images.
 
-GIF and MP4 exports show the collage progression at a 720-pixel long edge. Smoothness controls frame count and pace controls duration; both have an animation preview. Triptych exports a PNG with the original, collage, and styled migration map in three equal panels. Map start/end markers are selectable; end markers can be scaled, and migration lines meet their edges. Use "save map settings as default" to remember map styling for future launches.
+GIF and MP4 exports show the collage progression at a 720-pixel long edge. Smoothness controls frame count and pace controls duration; both have an animation preview. GIF exports also have a **max gif size** dropdown (1, 2, 5, 10, 25 or 50 MB; 50 MB is the largest allowed and the default). If the first encode is over the chosen size, the frames are shrunk until the file fits, and if even a 120-pixel GIF won't fit you are told to pick a bigger size, a shorter pace or lower smoothness. The preview obeys the same limit. Triptych exports a PNG with the original, collage, and styled migration map in three equal panels. Map start/end markers are selectable; end markers can be scaled, and migration lines meet their edges. Use "save map settings as default" to remember map styling for future launches.
 
 ## How it works
 
