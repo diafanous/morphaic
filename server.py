@@ -75,7 +75,7 @@ def read_settings():
 
 
 SETTINGS_LOCK = threading.Lock()
-MAP_KEYS = tuple(k for k in collage.SPEC if k.startswith('m') and k[1:2] in ('1','2','3')) + tuple(k for k in collage.COLORS if k.startswith('m')) + ('node_start','node_end','node_end_size','node_by_shape','node_end_shapes')
+MAP_KEYS = tuple(k for k in collage.SPEC if k.startswith('m') and k[1:2] in ('1','2','3')) + tuple(k for k in collage.COLORS if k.startswith('m')) + ('m2s','m2e','node_start','node_end','node_end_size','node_by_shape','node_end_shapes')
 
 
 def update_settings(changes):

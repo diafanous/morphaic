@@ -203,6 +203,7 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
 #shapeShares input[type=number]{width:42px}
 .studio-dialog .seg{gap:18px;flex-wrap:wrap}
 @media (max-width:760px){body{grid-template-columns:1fr;grid-template-rows:55vh 1fr}aside{border-left:0;border-top:1px solid var(--line)}}
+.pct{width:44px}
 </style>
 <link rel="stylesheet" href="/ui.css">
 <link rel="stylesheet" href="/iteration.css">
@@ -289,8 +290,9 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     <div class="row"><label class="grow" for="fmt">file</label><select id="fmt" aria-label="export file format"><option value="" disabled hidden>choose format</option><option value="png" selected>png</option><option value="tif">tif</option><option value="pdf">pdf</option><option value="gif">gif</option><option value="mp4">mp4</option><option value="map">map</option><option value="triptych">triptych</option><option value="txt">txt</option></select></div>
     <div class="row"><span class="grow">luminosity map</span><div class="seg" id="lum2d"><button data-f="lum-png">png</button><button data-f="lum-tif">tif</button></div></div>
     <div id="animsec" hidden>
+      <div class="row"><label class="grow" for="anim">animate</label><select id="anim" aria-label="what the animation shows"><option value="collage" selected>collage</option><option value="map">migration map</option></select></div>
       <div class="sl"><span>smoothness</span><output id="smoothnessv">12</output><input id="smoothness" type="range" min="4" max="24" step="1" value="12" aria-label="animation smoothness"></div>
-      <div class="sl"><span>pace</span><output id="pacev">12 seconds</output><input id="pace" type="range" min="3" max="30" step="1" value="12" aria-label="animation duration"></div>
+      <div class="sl"><span>pace</span><output id="pacev">6 seconds</output><input id="pace" type="range" min="3" max="30" step="1" value="6" aria-label="animation duration"></div>
       <div class="row" id="gifsizerow"><label class="grow" for="gifmb">max gif size</label><select id="gifmb" aria-label="maximum GIF file size"><option value="1">1 MB</option><option value="2">2 MB</option><option value="5">5 MB</option><option value="10">10 MB</option><option value="25">25 MB</option><option value="50" selected>50 MB</option></select></div>
       <div class="row animation-preview-row"><button id="animpreview">preview animation</button><span class="note">pace: time / smoothness: fps</span></div>
     </div>
@@ -302,15 +304,16 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
       <div class="sl"><span>end node size</span><output id="node_end_sizev">1.00×</output><input id="node_end_size" type="range" min="0.25" max="6" step="0.05" value="1" aria-label="migration end node size"></div>
       <div class="row"><button id="saveMapDefaults">save map settings as default</button></div>
       <div class="row"><b>1 initial</b></div>
-      <div class="row"><span class="grow">tone / opacity</span><input type="color" id="m1c" aria-label="initial tone"><input type="range" id="m1o" min="0" max="1" step=".01" aria-label="initial line opacity"></div>
-      <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m1p" aria-label="initial paper colour"><input type="range" id="m1a" min="0" max="1" step=".01" aria-label="initial paper opacity"></div>
+      <div class="row"><span class="grow">tone / opacity</span><input type="color" id="m1c" aria-label="initial tone"><input type="range" id="m1o" min="0" max="1" step=".01" aria-label="initial line opacity"><input class="pct" id="m1o_pct" type="number" min="0" max="100" step="1" aria-label="initial line opacity percent"><span>%</span></div>
+      <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m1p" aria-label="initial paper colour"><input type="range" id="m1a" min="0" max="1" step=".01" aria-label="initial paper opacity"><input class="pct" id="m1a_pct" type="number" min="0" max="100" step="1" aria-label="initial paper opacity percent"><span>%</span></div>
       <div class="row"><b>2 migration</b></div>
-      <div class="row"><span class="grow">tone / opacity</span><input type="color" id="m2c" aria-label="migration tone"><input type="range" id="m2o" min="0" max="1" step=".01" aria-label="migration line opacity"></div>
-      <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m2p" aria-label="migration paper colour"><input type="range" id="m2a" min="0" max="1" step=".01" aria-label="migration paper opacity"></div>
+      <div class="row"><span class="grow">lines / opacity</span><input type="color" id="m2c" aria-label="migration tone"><input type="range" id="m2o" min="0" max="1" step=".01" aria-label="migration line opacity"><input class="pct" id="m2o_pct" type="number" min="0" max="100" step="1" aria-label="migration line opacity percent"><span>%</span></div>
+      <div class="row"><span class="grow">start nodes</span><input type="color" id="m2s" aria-label="migration start node colour"></div>
+      <div class="row"><span class="grow">end nodes</span><input type="color" id="m2e" aria-label="migration end node colour"></div>
+      <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m2p" aria-label="migration paper colour"><input type="range" id="m2a" min="0" max="1" step=".01" aria-label="migration paper opacity"><input class="pct" id="m2a_pct" type="number" min="0" max="100" step="1" aria-label="migration paper opacity percent"><span>%</span></div>
       <div class="row"><b>3 final</b></div>
-      <div class="row"><span class="grow">tone / opacity</span><input type="color" id="m3c" aria-label="final tone"><input type="range" id="m3o" min="0" max="1" step=".01" aria-label="final line opacity"></div>
-      <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m3p" aria-label="final paper colour"><input type="range" id="m3a" min="0" max="1" step=".01" aria-label="final paper opacity"></div>
-      <div class="note">downloads a zip: the three layers as separate vector pdfs (each with its own paper, paper opacity 0 = none) to print and stack, plus one pdf holding all three as layers. the stage shows them stacked.</div>
+      <div class="row"><span class="grow">tone / opacity</span><input type="color" id="m3c" aria-label="final tone"><input type="range" id="m3o" min="0" max="1" step=".01" aria-label="final line opacity"><input class="pct" id="m3o_pct" type="number" min="0" max="100" step="1" aria-label="final line opacity percent"><span>%</span></div>
+      <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m3p" aria-label="final paper colour"><input type="range" id="m3a" min="0" max="1" step=".01" aria-label="final paper opacity"><input class="pct" id="m3a_pct" type="number" min="0" max="100" step="1" aria-label="final paper opacity percent"><span>%</span></div>
     </div>
     </div>
     <div id="output3d" hidden>
@@ -386,7 +389,7 @@ const SL = {
 const P = {cw:.25,ch:.25}, SLIDER = {}, st = {files: [], w: 0, h: 0, touched: false, dpi: 300, fmt: 'png', bg: '#f4f2ee', unit: 'in', seed: 1,
   grid: false,   // guide grid overlay on the preview
   // migration map, per layer: tone, line opacity, paper colour, paper opacity (0 = no paper)
-  map: {smoothness: 12, pace: 12, gifmb: 50, node_start: 'dot', node_end: 'arrow', node_end_size: 1, m1c: '#8a8a90', m1o: .8, m1p: '#f4f2ee', m1a: 1, m2c: '#ff5a36', m2o: .8, m2p: '#f4f2ee', m2a: 0, m3c: '#18181b', m3o: 1, m3p: '#f4f2ee', m3a: 0}};
+  map: {smoothness: 12, pace: 6, gifmb: 50, anim: 'collage', node_start: 'dot', node_end: 'arrow', node_end_size: 1, m1c: '#8a8a90', m1o: .8, m1p: '#f4f2ee', m1a: 1, m2c: '#ff5a36', m2s: '#ff5a36', m2e: '#ff5a36', m2o: .8, m2p: '#f4f2ee', m2a: 0, m3c: '#18181b', m3o: 1, m3p: '#f4f2ee', m3a: 0}};
 const show = v => +(v * UN[st.unit]).toFixed(Math.abs(v * UN[st.unit]) < .1 ? 4 : st.unit === 'mm' ? 1 : 2);
 const toIn = v => v / UN[st.unit];
 
@@ -437,8 +440,7 @@ function restoreEdit(s) {
   $('#lines').checked = s.lines; $('#unit').value = st.unit; $('#dpi').value = st.dpi; $('#bg').value = st.bg;
   $('#seedn').textContent = st.seed;
   document.querySelectorAll('#lum2d button').forEach(b => b.classList.toggle('on', b.dataset.f === st.fmt));
-  $('#mapsec').hidden = !['map','triptych'].includes(st.fmt);
-  $('#animsec').hidden = !['gif', 'mp4'].includes(st.fmt); $('#gifsizerow').hidden = st.fmt !== 'gif'; motionLabels();
+  outputSections(st.fmt); motionLabels();
   for (const [id, value] of Object.entries(st.map)) {
     const el = $('#' + id); if (!el) continue; el.value = value;
     if (el.type === 'range') el.style.setProperty('--p', (value-el.min)/(el.max-el.min)*100 + '%');
@@ -619,10 +621,15 @@ $('#lines').onchange = outUI;
 $('#ow').oninput = () => { if (+$('#ow').value > 0) { st.w = toIn(+$('#ow').value); st.touched = true; outUI(); draw(false); } };
 $('#oh').oninput = () => { if (+$('#oh').value > 0) { st.h = toIn(+$('#oh').value); st.touched = true; outUI(); draw(false); } };
 $('#dpi').oninput = () => { if (+$('#dpi').value > 0) { st.dpi = +$('#dpi').value; outUI(); } };
+function outputSections(f) {   // which option panels the chosen file type needs
+  const anim = ['gif', 'mp4'].includes(f);
+  $('#animsec').hidden = !anim; $('#gifsizerow').hidden = f !== 'gif';
+  $('#mapsec').hidden = !(['map', 'triptych'].includes(f) || (anim && st.map.anim === 'map'));   // a map animation uses the map's styling
+}
 function selectExportFormat(f) {
   if (!f) return;
   st.fmt = f;
-  $('#mapsec').hidden = !['map','triptych'].includes(f); $('#animsec').hidden = !['gif', 'mp4'].includes(f); $('#gifsizerow').hidden = f !== 'gif'; outUI(); draw(false);
+  outputSections(f); outUI(); draw(false);
 }
 $('#fmt').onchange = e => selectExportFormat(e.target.value);
 $('#lum2d').onclick = e => selectExportFormat(e.target.dataset.f);
@@ -712,6 +719,9 @@ $('#saveMapDefaults').onclick = async () => {
 };
 let motionUrl = null;
 function motionLabels() {
+  for (const id of ['m1o', 'm1a', 'm2o', 'm2a', 'm3o', 'm3a']) {   // opacity percentages next to the sliders
+    const f = $('#' + id + '_pct'); if (f && document.activeElement !== f) f.value = Math.round(st.map[id] * 100);
+  }
   $('#node_end_sizev').textContent = (+st.map.node_end_size).toFixed(2) + '×';
   $('#smoothnessv').textContent = st.map.smoothness;
   $('#pacev').textContent = st.map.pace + ' seconds';
@@ -857,7 +867,18 @@ $('#curvereset').onclick = () => { cpts = [[0, 0], [1, 1]]; curveSet(false); };
 for (const [id, v] of Object.entries(st.map)) {
   const el = $('#' + id), fill = () => el.type === 'range' && el.style.setProperty('--p', (el.value-el.min)/(el.max-el.min)*100 + '%');
   el.value = v; fill();
-  el.oninput = () => { st.map[id] = el.type === 'range' ? +el.value : el.value; fill(); motionLabels(); draw(true); };
+  el.oninput = () => {
+    const old = st.map[id]; st.map[id] = el.type === 'range' ? +el.value : el.value;
+    if (id === 'anim') outputSections(st.fmt);
+    if (id === 'm2c') for (const k of ['m2s', 'm2e']) if (st.map[k] === old) { st.map[k] = el.value; $('#' + k).value = el.value; }   // node colours follow the line colour until set apart
+    fill(); motionLabels(); draw(true);
+  };
+  const pct = $('#' + id + '_pct');
+  if (pct) {   // a typed percentage drives the slider
+    pct.oninput = () => { const v = parseFloat(pct.value); if (!isNaN(v)) { el.value = Math.min(100, Math.max(0, v)) / 100; el.oninput(); } };
+    pct.onchange = () => { el.onchange(); pct.value = Math.round(st.map[id] * 100); };
+  }
+  motionLabels();
   el.onchange = () => draw(false);
 }
 

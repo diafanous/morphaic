@@ -42,7 +42,7 @@ SPEC = dict(
     w=(0.001, 200, 8.5), h=(0.001, 200, 11), dpi=(10, 1200, 300), pv=(200, 3000, 1000),  # canvas in, dpi, preview px
     m1o=(0, 1, 0.8), m2o=(0, 1, 0.8), m3o=(0, 1, 1),          # migration map: line opacity per layer
     m1a=(0, 1, 1), m2a=(0, 1, 0), m3a=(0, 1, 0),              # migration map: paper opacity per layer (0 = no paper)
-    smoothness=(4, 24, 12), pace=(3, 30, 12), gifmb=(1, 50, 50),   # animation: frame rate, seconds; GIF size cap in MB
+    smoothness=(4, 24, 12), pace=(3, 30, 6), gifmb=(1, 50, 50),   # animation: frame rate, seconds; GIF size cap in MB
     node_end_size=(0.25, 6, 1),
 )
 COLORS = dict(bg="#f4f2ee", m1c="#8a8a90", m2c="#ff5a36", m3c="#18181b",   # canvas, map tone per layer
@@ -55,11 +55,14 @@ def clean(raw):
     for k, d in COLORS.items():
         v = str(raw.get(k, ""))
         p[k] = v if re.fullmatch(r"#[0-9a-fA-F]{6}", v) else d
+    for k in ("m2s", "m2e"):   # start / end node colours: follow the line colour until set, so older settings look the same
+        v = str(raw.get(k, ""))
+        p[k] = v if re.fullmatch(r"#[0-9a-fA-F]{6}", v) else p["m2c"]
     pts = [(min(max(float(x), 0), 1), min(max(float(y), 0), 1)) for x, y in list(raw.get("pts") or [])[:5000]]
     p["pts"] = pts[::max(1, -(-len(pts) // 400))]   # drawn points, thinned to <= 400 so the nearest-point search stays cheap
     c = raw.get("curve")
     p["curve"] = [min(max(round(float(v)), 0), 255) for v in c] if isinstance(c, list) and len(c) == 256 else IDENT
-    for key, default, choices in [('node_start', 'dot', ('none', 'dot', 'ring', 'square', 'plus')), ('node_end', 'arrow', ('none', 'arrow', 'dot', 'ring', 'square', 'plus'))]:
+    for key, default, choices in [('node_start', 'dot', ('none', 'dot', 'ring', 'square', 'plus')), ('node_end', 'arrow', ('none', 'arrow', 'dot', 'ring', 'square', 'plus')), ('anim', 'collage', ('collage', 'map'))]:
         value = raw.get(key, default)
         p[key] = value if value in choices else default
     p.update(shapes.clean(raw))
@@ -388,7 +391,7 @@ def migration_line_end(p, pc):
     return cx-ux*trim, cy-uy*trim
 
 
-def _map_doc(raw, specs, store, layers):
+def _map_doc(raw, specs, store, layers, pieces=None, doc_only=False):
     """Vector PDF of the canvas holding the given map layers (1 initial, 2 migration, 3 final), no pixels.
 
     Initial = every section's outline where it was cut; final = where it landed; migration = lines joining
@@ -401,14 +404,15 @@ def _map_doc(raw, specs, store, layers):
     if not specs:
         raise ValueError("add an image or PDF first")
     W, H = p["w"], p["h"]
-    pieces = layout(p, _sizes(specs, store), W, H)
+    if pieces is None:   # the animation passes sections caught part-way along their journey
+        pieces = layout(p, _sizes(specs, store), W, H)
     doc = pymupdf.open()
     page = doc.new_page(width=W * 72, height=H * 72)
     oc = {n: doc.add_ocg(LAYERS[n]) if len(layers) > 1 else 0 for n in layers}
     pt = lambda q: (q[0] * 72, q[1] * 72)
 
-    def ink(n, draw, closed=True, fill=0, soft=1):   # fill: fill opacity as a share of the layer's; soft: scales the line opacity
-        col, op = _rgb(p[f"m{n}c"]), p[f"m{n}o"]
+    def ink(n, draw, closed=True, fill=0, soft=1, key=None):   # fill: fill opacity as a share of the layer's; soft: scales the line opacity; key: colour setting (default: the layer's)
+        col, op = _rgb(p[key or f"m{n}c"]), p[f"m{n}o"]
         sh = page.new_shape()
         draw(sh)
         sh.finish(color=col, fill=col if fill else None, width=0.6, closePath=closed, stroke_opacity=op * soft, fill_opacity=op * fill, oc=oc[n])
@@ -485,13 +489,13 @@ def _map_doc(raw, specs, store, layers):
             if p["draw"] > 0 and len(p["pts"]) > 1:
                 ink(2, strokes, closed=False, soft=0.6)
             ink(2, lines, closed=False)
-            ink(2, lambda sh: markers(sh, 'node_start', True), fill=0 if p['node_start'] == 'ring' else 1)
+            ink(2, lambda sh: markers(sh, 'node_start', True), fill=0 if p['node_start'] == 'ring' else 1, key='m2s')
             for style in shapes.NODE_STYLES:
                 if style != 'none':
-                    ink(2, lambda sh, style=style: markers(sh, 'node_end', only_style=style), fill=0 if style == 'ring' else 1)
+                    ink(2, lambda sh, style=style: markers(sh, 'node_end', only_style=style), fill=0 if style == 'ring' else 1, key='m2e')
         else:
             ink(3, final, fill=0.15)
-    return doc.tobytes(deflate=True)
+    return doc if doc_only else doc.tobytes(deflate=True)
 
 
 def migration_pdf(raw, specs, store):
@@ -500,7 +504,7 @@ def migration_pdf(raw, specs, store):
 
 
 def migration_pdfs(raw, specs, store):
-    """{file name: bytes}: each layer as its own PDF, to print or plot and stack, plus the one layered PDF."""
+    """{file name: bytes}: each layer as its own PDF plus the one layered PDF (the InDesign export places these)."""
     out = {f"collage-{LAYERS[n].replace(' ', '-')}.pdf": _map_doc(raw, specs, store, (n,)) for n in (1, 2, 3)}
     out["collage-map-layers.pdf"] = migration_pdf(raw, specs, store)
     return out
@@ -609,18 +613,52 @@ def animation_pose(pieces, layer_ids, progress):
             for pc, layer in zip(pieces, layer_ids)]
 
 
+def _layer_ids(p, sizes):
+    counts = [0]+[len(layout(dict(p,layers=i),sizes,p['w'],p['h'])) for i in range(1,int(p['layers'])+1)]
+    return [layer for layer in range(int(p['layers'])) for _ in range(counts[layer+1]-counts[layer])]
+
+
+def _map_frame_fn(p, raw, specs, store):
+    """progress 0..1 -> the migration map with every section part-way along its journey, as an RGB image (720 px long edge)."""
+    sizes = _sizes(specs, store)
+    pieces, layer_ids = layout(p, sizes, p['w'], p['h']), _layer_ids(p, sizes)
+
+    def frame(progress):
+        pose = [pc[:-1] for pc in animation_pose(pieces, layer_ids, progress)]   # drop the fade value the collage animation adds
+        doc = _map_doc(raw, specs, store, (1, 2, 3), pieces=pose, doc_only=True)
+        z = 720 / max(doc[0].rect.width, doc[0].rect.height)
+        pix = doc[0].get_pixmap(matrix=pymupdf.Matrix(z, z), alpha=False)
+        return Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
+    return frame
+
+
+def map_animation_frames(p, raw, specs, store):
+    """The migration map animated: each line grows from its start node as the section's outline travels, turns and scales."""
+    frame, (total, fps) = _map_frame_fn(p, raw, specs, store), animation_timing(p)
+    lead, tail = max(1, round(.25*fps)), max(1, round(.75*fps))
+    first, last, moving = frame(0), frame(1), total-lead-tail
+    for _ in range(lead):
+        yield first.copy()
+    for i in range(moving):
+        yield frame(i/max(1, moving-1))
+    for _ in range(tail):
+        yield last.copy()
+
+
 def animation_frames(raw, specs, store):
     """Copies separate, rotate and migrate together along one eased timeline."""
     p = clean(raw)
     if not specs:
         raise ValueError('add an image or PDF first')
+    if p['anim'] == 'map':   # animate the migration drawing instead of the pictures
+        yield from map_animation_frames(p, raw, specs, store)
+        return
     ppi = 720/max(p['w'], p['h'])
     grain_texture = _grain_texture(p, store)
     items, originals = _gif_items(p, specs, store)
     sizes = [(w,h) for _,w,h in items]
     pieces = layout(p, sizes, p['w'], p['h'])
-    counts = [0]+[len(layout(dict(p,layers=i),sizes,p['w'],p['h'])) for i in range(1,int(p['layers'])+1)]
-    layer_ids = [layer for layer in range(int(p['layers'])) for _ in range(counts[layer+1]-counts[layer])]
+    layer_ids = _layer_ids(p, sizes)
     total,fps = animation_timing(p)
     lead,tail = max(1,round(.25*fps)),max(1,round(.75*fps))
     original = _gif_original(p, originals, ppi)
@@ -651,9 +689,13 @@ def process_gif(raw, specs, store):
     p = clean(raw)
     count, fps = animation_timing(p)
     # Shared palette avoids color flicker between independently quantized frames.
-    items, originals = _gif_items(p, specs, store)
-    preview = render(p,items,720/max(p['w'],p['h']),Image.BILINEAR,grain_texture=_grain_texture(p,store))
-    samples = originals+[preview]
+    if p['anim'] == 'map':
+        frame = _map_frame_fn(p, raw, specs, store)
+        samples = [frame(t) for t in (0, .5, 1)]
+    else:
+        items, originals = _gif_items(p, specs, store)
+        preview = render(p,items,720/max(p['w'],p['h']),Image.BILINEAR,grain_texture=_grain_texture(p,store))
+        samples = originals+[preview]
     atlas = Image.new('RGB',(128*len(samples),128))
     for i,sample in enumerate(samples):
         atlas.paste(sample.convert('RGB').resize((128,128)),(128*i,0))
@@ -741,19 +783,20 @@ def settings_text(raw, specs, store, lines=False):
 
 
 def export(raw, specs, store, fmt, lines=False):
-    """-> (file bytes, file name). fmt: png / tif / pdf / gif, or map for the migration map (a zip of its PDFs).
+    """-> (file bytes, file name). fmt: png / tif / pdf / gif, or map for the migration map (one vector PDF, the drawing the stage shows).
     With lines=True the portion linework is added, which also makes the result a zip."""
     if fmt not in ("png", "tif", "pdf", "gif", "mp4", "map", "triptych", "txt"):
         raise ValueError(f"unknown format {fmt!r}")
+    stem = "collage-map-process" if clean(raw)["anim"] == "map" else "collage-process"   # what a GIF / MP4 shows
     if fmt=='txt':
         return settings_text(raw,specs,store,lines), 'collage-settings.txt'
     extra = portions_pdf(raw, specs, store) if lines else None   # cheap, so a bad request fails before the big render
     if fmt == "map":
-        files = migration_pdfs(raw, specs, store)
+        files = {"collage-map.pdf": migration_pdf(raw, specs, store)}   # the drawing the stage shows, as vector
     elif fmt == "gif":
-        files = {"collage-process.gif": process_gif(raw, specs, store)}
+        files = {f"{stem}.gif": process_gif(raw, specs, store)}
     elif fmt == 'mp4':
-        files = {'collage-process.mp4': process_mp4(raw, specs, store)}
+        files = {f'{stem}.mp4': process_mp4(raw, specs, store)}
     elif fmt == 'triptych':
         files = {'collage-triptych.png': triptych(raw,specs,store)}
     else:

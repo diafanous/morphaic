@@ -309,9 +309,9 @@ def test_portion_linework_and_zip():
     data, name = C.export(raw, specs, store, "png", lines=True)
     assert name == "collage.zip" and sorted(zipfile.ZipFile(io.BytesIO(data)).namelist()) == ["collage-portions.pdf", "collage.png"]
     data, name = C.export(raw, specs, store, "map")
-    assert name == "collage-map.zip" and len(zipfile.ZipFile(io.BytesIO(data)).namelist()) == 4
+    assert name == "collage-map.pdf" and data[:4] == b"%PDF"                            # one drawing, not a zip
     data, name = C.export(raw, specs, store, "map", lines=True)
-    assert len(zipfile.ZipFile(io.BytesIO(data)).namelist()) == 5                       # + portion linework
+    assert name == "collage-map.zip" and sorted(zipfile.ZipFile(io.BytesIO(data)).namelist()) == ["collage-map.pdf", "collage-portions.pdf"]   # + portion linework
     try:
         C.export({**raw, "ps": 1}, specs, store, "png", lines=True)
     except ValueError as e:
@@ -409,6 +409,61 @@ def test_gif_fits_the_chosen_size():
         C.GIF_MIN_EDGE = floor
 
 
+def test_animation_pace_default_is_six_seconds_everywhere():
+    import re
+    html = pathlib.Path(C.__file__).with_name('index.html').read_text(encoding='utf-8')
+    default = C.SPEC['pace'][2]
+    frames, fps = C.animation_timing(C.clean({}))
+    assert default == 6 and C.clean({})['pace'] == 6 and abs(frames / fps - 6) < 1e-9           # engine default and real duration
+    assert re.search(r'id="pace"[^>]*value="6"', html) and 'pace: 6,' in html and '>6 seconds<' in html   # slider, its label, page state
+
+
+def test_map_settings_node_colours_and_typed_percentages():
+    import re
+    html = pathlib.Path(C.__file__).with_name('index.html').read_text(encoding='utf-8')
+    for key in re.findall(r'(\w+):', re.search(r'map: \{([^}]*)\}', html).group(1)):
+        assert f'id="{key}"' in html, key                                  # a setting with no control would stop the page's setup loop
+    for key in ('m1o', 'm1a', 'm2o', 'm2a', 'm3o', 'm3a'):
+        assert f'id="{key}_pct"' in html, key                              # typed percentage beside every opacity slider
+    follows = C.clean({'m2c': '#112233'})                                  # unset node colours follow the line colour (old settings look the same)
+    assert follows['m2s'] == follows['m2e'] == '#112233'
+    apart = C.clean({'m2c': '#112233', 'm2s': '#00ff00', 'm2e': 'oops'})
+    assert (apart['m2s'], apart['m2e']) == ('#00ff00', '#112233')          # a bad value falls back to the line colour
+    assert 'm2s' in server.MAP_KEYS and 'm2e' in server.MAP_KEYS           # saved as map defaults too
+    store, specs, raw = map_raw()
+    raw = {**raw, 'm2c': '#ff0000', 'm2s': '#00ff00', 'm2e': '#0000ff', 'm2o': 1, 'node_start': 'dot', 'node_end': 'dot', 'scatter': .8}
+    layer2 = [d for d in pymupdf.open(stream=C.migration_pdf(raw, specs, store), filetype='pdf')[0].get_drawings() if d.get('layer') == '2 migration']
+    assert {d['color'] for d in layer2} >= {(1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)}          # lines red, start nodes green, end nodes blue
+    assert {d['fill'] for d in layer2} >= {(0.0, 1.0, 0.0), (0.0, 0.0, 1.0)}
+
+
+def test_map_exports_one_drawing_and_can_be_animated():
+    store, specs, raw = map_raw()
+    html = pathlib.Path(C.__file__).with_name('index.html').read_text(encoding='utf-8')
+    assert 'downloads a zip' not in html and 'separate vector pdfs' not in html          # the zip note is gone from the map menu
+    assert 'id="anim"' in html and 'migration map</option>' in html
+    data, name = C.export(raw, specs, store, 'map')
+    assert name == 'collage-map.pdf' and data[:4] == b'%PDF'
+    pixels = lambda pdf: pymupdf.open(stream=pdf, filetype='pdf')[0].get_pixmap(dpi=40, alpha=False).samples   # PDFs embed a timestamp, so compare what they draw
+    assert pixels(data) == pixels(C.migration_pdf(raw, specs, store))                    # exactly the drawing the stage shows
+    assert 'collage-3-final.pdf' in C.migration_pdfs(raw, specs, store)                  # the InDesign export still gets the separate layers
+    assert C.clean({'anim': 'oops'})['anim'] == 'collage' and C.clean({'anim': 'map'})['anim'] == 'map'
+    anim = {**raw, 'anim': 'map', 'smoothness': 4, 'pace': 3}
+    frames = list(C.animation_frames(anim, specs, store))
+    assert len(frames) == C.animation_timing(C.clean(anim))[0]
+    page = pymupdf.open(stream=C.migration_pdf(anim, specs, store), filetype='pdf')[0]
+    z = 720 / max(page.rect.width, page.rect.height)
+    pix = page.get_pixmap(matrix=pymupdf.Matrix(z, z), alpha=False)
+    still = Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
+    assert ImageChops.difference(frames[-1], still).getbbox() is None                    # the last frame IS the finished map
+    assert ImageChops.difference(frames[0], frames[-1]).getbbox() is not None            # and the map moved to get there
+    gif, name = C.export(anim, specs, store, 'gif')
+    assert name == 'collage-map-process.gif' and Image.open(io.BytesIO(gif)).is_animated
+    mp4, name = C.export(anim, specs, store, 'mp4')
+    assert name == 'collage-map-process.mp4' and mp4[4:8] == b'ftyp'
+    assert C.export({**anim, 'anim': 'collage'}, specs, store, 'gif')[1] == 'collage-process.gif'   # the default still animates the collage
+
+
 def test_migration_node_boundaries_and_scaling():
     import math
     for scale in (.25,1,6):
@@ -475,10 +530,10 @@ def test_export_folder_persistence_and_no_overwrite():
             second = server.save_export(b'two','collage.png')
             assert first.name=='collage.png' and second.name=='collage (1).png'
             assert first.read_bytes()==b'one' and second.read_bytes()==b'two'
-            defaults = server.save_map_defaults({'m2c':'#ff0000','node_end':'ring','node_end_size':3})
+            defaults = server.save_map_defaults({'m2c':'#ff0000','m2s':'#00ff00','m2e':'#0000ff','node_end':'ring','node_end_size':3})
             server.set_export_folder(folder)
             assert server.map_defaults()==defaults and defaults['node_end_size']==3
-            assert defaults['m2c']=='#ff0000' and defaults['node_end']=='ring'
+            assert defaults['m2c']=='#ff0000' and defaults['node_end']=='ring' and defaults['m2s']=='#00ff00' and defaults['m2e']=='#0000ff'
     finally:
         server.SETTINGS_PATH, server.EXPORT_FOLDER = original_settings, original_folder
 

@@ -1,6 +1,10 @@
 # Unreleased
 
 - GIF export has a max-size dropdown (1, 2, 5, 10, 25, 50 MB; 50 MB is the cap). Frames shrink until the GIF fits.
+- Animation pace now defaults to 6 seconds (was 12), so GIF and MP4 exports are shorter and smaller by default.
+- Map settings: typeable opacity percentages, and separate colours for start nodes, end nodes and connecting lines.
+- GIF and MP4 can animate the migration map instead of the collage (new *animate* dropdown).
+- The map export is now a single full-quality vector PDF (the drawing the stage shows) instead of a zip of four files.
 
 # Morphaic 1.0.1
 
