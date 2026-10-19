@@ -1,3 +1,10 @@
+# Morphaic 1.0.1
+
+- Compact Cut, grain import, animation preview and controller-mode controls; stronger button backgrounds and aligned header edges.
+- Editable custom-grain DPI that preserves physical texture scale across preview and export.
+- Simultaneous eased duplication, rotation and migration in GIF/MP4, with smoother frame sampling and a shared GIF palette.
+- Plus-sign migration start/end markers, including shape-specific end markers.
+
 # Morphaic 1.0
 
 A new glass workspace, integrated window controls, canvas-only controller mode, expanded image effects and high-detail relief exports.

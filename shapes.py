@@ -5,7 +5,7 @@ import math
 from PIL import Image, ImageDraw
 
 NAMES = ('rectangle', 'ellipse', 'triangle', 'diamond', 'hexagon', 'star', 'heart', 'custom')
-NODE_STYLES = ('none', 'dot', 'ring', 'square', 'arrow', 'cut')
+NODE_STYLES = ('none', 'dot', 'ring', 'square', 'plus', 'arrow', 'cut')
 
 
 def clean(raw):

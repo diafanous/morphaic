@@ -13,7 +13,7 @@ from PIL import Image, ImageEnhance, ImageStat
 
 SPEC = dict(exposure=(-3, 3, 0), temperature=(-1, 1, 0), tint=(-1, 1, 0),
             saturation=(0, 2, 1), grain=(0, 1, 0), grain_size=(.25, 8, 1),
-            gradient_amount=(0, 1, 0))
+            grain_dpi=(1, 9600, 300), gradient_amount=(0, 1, 0))
 DEFAULT_STOPS = ({'position': 0, 'color': '#000000'}, {'position': 1, 'color': '#ffffff'})
 
 
@@ -128,7 +128,10 @@ def grain(im, p, ppi, custom=None):
     amount = p['grain']
     if not amount:
         return im
-    pitch = p['grain_size']*ppi/300
+    pitch = p['grain_size']*ppi/(p['grain_dpi'] if custom is not None else 300)
+    if isinstance(custom, tuple):
+        custom, scale = custom
+        pitch *= scale
     strength = 64*amount*min(1, math.sqrt(pitch))
     seed = int(p['seed'])
     x = (np.arange(im.width, dtype=np.float64)+.5)/pitch-.5

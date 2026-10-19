@@ -1,9 +1,10 @@
-// Local v0.2.1 test controls. Source bytes stay in the session store for undo.
+// Editing controls. Source bytes stay in the session store for undo.
+P.grain_dpi = 300;
 P.grain_source_id = '';
 P.grain_source_name = '';
 P.gradient_stops = [{position:0,color:'#000000'},{position:1,color:'#ffffff'}];
 const iterationDefaults = copy(editSnapshot());
-$('#panelTitle').title = 'morphaic v0.2.1 test';
+$('#panelTitle').title = 'morphaic 1.0.1';
 
 function editAction(action) {
   finishHistory(); beginHistory(true);
@@ -127,7 +128,9 @@ function gradientPaint() {
   $('#gradientPreview').style.background = `linear-gradient(to right,${stops.map(stop=>`${stop.color} ${stop.position*100}%`).join(',')})`;
 }
 function effectsSync() {
-  $('#grainName').textContent = P.grain_source_name || 'generated monochrome grain';
+  $('#grainName').textContent = P.grain_source_name || '';
+  $('#grainCustom').hidden = !P.grain_source_id;
+  $('#grainDpi').value = P.grain_dpi ?? 300;
   $('#grainClear').hidden = !P.grain_source_id;
   $('#gradientPreset').value = 'custom';
   const parent = $('#gradientStops'); parent.replaceChildren();
@@ -158,6 +161,7 @@ $('#gradientAdd').onclick=()=>editAction(()=>{
   P.gradient_stops.push({position:(start+end)/2,color:'#808080'});P.gradient_stops.sort((a,b)=>a.position-b.position);effectsSync();draw(false);
 });
 $('#gradientReverse').onclick=()=>editAction(()=>{P.gradient_stops=P.gradient_stops.map(stop=>({...stop,position:1-stop.position})).sort((a,b)=>a.position-b.position);effectsSync();draw(false);});
+$('#grainDpi').onchange=event=>editAction(()=>{const value=Number(event.target.value);P.grain_dpi=Number.isFinite(value)?Math.min(9600,Math.max(1,value)):300;effectsSync();draw(false);});
 $('#grainImport').onclick=()=>$('#grainFile').click();
 $('#grainFile').onchange=async event=>{
   const file=event.target.files[0];event.target.value='';if(!file)return;

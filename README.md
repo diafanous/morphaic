@@ -2,7 +2,7 @@
 
 ## Morphaic 1.0
 
-Morphaic 1.0 builds on v0.2.0 with a glass workspace, color effects, dense relief exports and integrated desktop controls. Run `uv run server.py` for the browser UI, or build the Windows executable with `./build-test.ps1` after `uv sync --extra desktop --group build`. The executable is `dist/morphaic-1.0.0.exe`.
+Morphaic 1.0 builds on v0.2.0 with a glass workspace, color effects, dense relief exports and integrated desktop controls. Run `uv run server.py` for the browser UI, or build the Windows executable with `./build-test.ps1` after `uv sync --extra desktop --group build`. The executable is `dist/morphaic-1.0.1.exe`.
 
 The desktop app integrates minimize, maximize/restore and close into a glass bubble beside Export. Drag the app name to move the window, double-click it to maximize, and drag any window edge or corner to resize. F11 toggles full screen; Escape leaves full screen.
 
@@ -11,7 +11,7 @@ The desktop app integrates minimize, maximize/restore and close into a glass bub
 - Right-click the canvas (or focus it and press Shift+F10) for reset canvas, remove attached images and quick export using the current export settings. Removing sources and resets can be undone.
 - The top-bar reset restores neutral edits, original source sizes/pages and default export settings while retaining attached images. Its confirmation includes a persistent "don't show me this again" preference. Canvas reset retains the chosen export format and resolution.
 - Color grading adds exposure, temperature, tint and saturation. Gradient maps support up to 16 editable color/brightness stops, presets, reversal and blend amount. These share the existing preview/export pipeline, including animations and collage-based reliefs.
-- Film grain supports generated monochrome grain or an imported image texture. Amount starts at zero; raise it to apply. Grain size is measured in pixels at 300 dpi, stays at the same physical scale across resolutions and uses the collage seed. Custom textures repeat and are normalized around neutral gray. Very fine grain is reduced at low preview resolutions to avoid moire. TXT settings include effect values and custom texture name/reference, but do not embed the texture or source images.
+- Film grain supports generated monochrome grain or an imported image texture. Amount starts at zero; raise it to apply. Generated grain size is measured in pixels at 300 dpi. Imported textures have an editable DPI value; their physical scale stays consistent across preview and export resolutions. Grain uses the collage seed. Custom textures repeat and are normalized around neutral gray. Very fine grain is reduced at low preview resolutions to avoid moire. TXT settings include effect values and custom texture name/reference, but do not embed the texture or source images.
 - Relief spacing reaches **0.01 mm**. The old 500,000-vertex ceiling is removed. Compact mesh arrays and chunked binary STL encoding support denser meshes; the app shows one estimated file size at the bottom of export settings and checks available physical memory before exporting. Model size, format and backing affect memory requirements. The live preview remains lightweight.
 - The cutting mat is a monochrome overlay within the canvas area. Freehand/point cuts, seal/lift, saved stencils, keyboard controls, sound and cut undo/redo remain available.
 
@@ -50,7 +50,7 @@ The **cut shape** selector starts with the existing rectangles and cell sizes. C
 
 Version 0.2.0 introduces the morphaic name, relief exports, French-cleat models, mixed cut shapes and the cutting mat. Cut, collage, tone and layers have collapsible panels with disclosure icons on the right. The export icon opens configurations under an **export** header, and display units sit beside each source's page size.
 
-Release downloads include `morphaic-1.0.0.exe` and `morphaic-1.0.0-setup.exe` for Windows and separate `morphaic-1.0.0-macos-apple-silicon.zip` and `morphaic-1.0.0-macos-intel.zip` archives for macOS 15 or later. On a Mac, unzip the matching archive and move `morphaic.app` into Applications. Earlier release downloads retain their historical autocollage names. Mac builds use ad-hoc signing and are not Apple-notarized; macOS may require approval in System Settings > Privacy & Security on first launch.
+Release downloads include `morphaic-1.0.1.exe` and `morphaic-1.0.1-setup.exe` for Windows and separate `morphaic-1.0.1-macos-apple-silicon.zip` and `morphaic-1.0.1-macos-intel.zip` archives for macOS 15 or later. On a Mac, unzip the matching archive and move `morphaic.app` into Applications. Earlier release downloads retain their historical autocollage names. Mac builds use ad-hoc signing and are not Apple-notarized; macOS may require approval in System Settings > Privacy & Security on first launch.
 
 Run `uv run --extra desktop desktop.py` to open morphaic in its own resizable window. This keeps the existing HTML interface and Python image engine, but does not open an external browser. Windows needs the Microsoft Edge WebView2 Runtime.
 
@@ -112,7 +112,7 @@ The preview is rendered by the same engine as the export, at screen size. Slider
 
 ## Windows test installer and canvas updates
 
-Run `./build-installer.ps1` with Inno Setup 6 or newer installed (or pass `-Compiler` with the ISCC.exe path). It builds `dist/morphaic-1.0.0-setup.exe`, a per-user installer with Start menu shortcut, optional desktop shortcut and uninstaller. The standalone `dist/morphaic-1.0.0.exe` remains available. Both use `assets/morphaic.ico`; its vector master and regeneration script are included. Windows builds are unsigned. The build scripts create local artifacts; tagged GitHub builds publish releases.
+Run `./build-installer.ps1` with Inno Setup 6 or newer installed (or pass `-Compiler` with the ISCC.exe path). It builds `dist/morphaic-1.0.1-setup.exe`, a per-user installer with Start menu shortcut, optional desktop shortcut and uninstaller. The standalone `dist/morphaic-1.0.1.exe` remains available. Both use `assets/morphaic.ico`; its vector master and regeneration script are included. Windows builds are unsigned. The build scripts create local artifacts; tagged GitHub builds publish releases.
 
 The liquid-glass study uses translucent cards, soft reflections and a scrollbar four pixels from the right edge. Wheel zooms about the pointer; Shift+wheel pans horizontally and Alt+wheel pans vertically. Space+drag or middle-drag pans the canvas. Arrow keys pan when the canvas has focus. Fit (or Ctrl/Cmd+0) restores the view. These controls do not alter export dimensions. In the cutting mat, arrow keys and Space retain keyboard knife control; middle-drag and wheel still navigate.
 
@@ -123,3 +123,5 @@ Choose **InDesign** in 2D export, then **import file**. The selector starts empt
 For automatic placement, set image frame Script Labels in InDesign to `morphaic:collage`, `morphaic:initial`, `morphaic:migration`, `morphaic:final`, `morphaic:map`, or `morphaic:source:1` (source numbers follow the current source list). Labels without the `morphaic:` prefix also work for image frames. Unlabeled frames can be assigned manually. Use `morphaic:title` or `morphaic:seed` on text frames to fill the drawing title or seed. Choose fit entire image or fill frame to control cropping.
 
 Export fills a copy of the template and saves a ZIP containing INDD, IDML, PDF and settings. Generated drawings are embedded; other linked assets remain as supplied by the template. The original file is unchanged. There is no fixed number of drawings or hard-coded layout: the selected template's frames determine placement.
+
+Version 1.0.1: mixed-shape toggle and shape selector share a row; controller mode uses a compact button with shortcut tooltip. Migration nodes include plus signs. GIF/MP4 exports use one eased transition for duplication, rotation and movement, with frame density based on duration and a shared GIF palette.

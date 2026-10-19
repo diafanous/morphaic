@@ -68,7 +68,7 @@ function useSavedStencil(stencil){
 }
 
 function studioSync() {
-  $('#cutShape').value=st.cut.cut_shape; $('#multiShape').checked=st.cut.multi_shape;
+  $('#cutShape').value=st.cut.cut_shape; $('#multiShape').setAttribute('aria-pressed',String(st.cut.multi_shape));
   $('#shapeMix').hidden=!st.cut.multi_shape; $('#cutShape').disabled=st.cut.multi_shape;
   document.querySelectorAll('[data-shape-share]').forEach(el=>{el.value=st.cut.shape_weights[el.dataset.shapeShare]; el.disabled=el.dataset.shapeShare==='custom'&&!st.cut.custom_shape.length;});
   $('#cutShape option[value=custom]').disabled=!st.cut.custom_shape.length;
@@ -169,11 +169,11 @@ for(const [i,name] of SHAPE_NAMES.entries()) {
   range.oninput=()=>set(+range.value);range.onchange=()=>draw(false);num.oninput=num.onchange=()=>set(+num.value);
   $('#shapeShares').append(row);
   const node=document.createElement('div');node.className='row';
-  node.innerHTML=`<label class="grow" for="node-${name}">${name}</label><select id="node-${name}" data-shape-node="${name}" aria-label="${name} end node"><option value="none">none</option><option value="dot">dot</option><option value="ring">ring</option><option value="square">square</option><option value="arrow">arrow</option><option value="cut">cut shape</option></select>`;
+  node.innerHTML=`<label class="grow" for="node-${name}">${name}</label><select id="node-${name}" data-shape-node="${name}" aria-label="${name} end node"><option value="none">none</option><option value="dot">dot</option><option value="ring">ring</option><option value="square">square</option><option value="plus">plus (+)</option><option value="arrow">arrow</option><option value="cut">cut shape</option></select>`;
   node.querySelector('select').onchange=e=>{st.map.node_end_shapes[name]=e.target.value;draw(false);};$('#shapeNodes').append(node);
 }
 $('#cutShape').onchange=e=>{st.cut.cut_shape=e.target.value;draw(false);};
-$('#multiShape').onchange=e=>{st.cut.multi_shape=e.target.checked;studioSync();draw(false);};
+$('#multiShape').onclick=()=>editAction(()=>{st.cut.multi_shape=!st.cut.multi_shape;studioSync();draw(false);});
 $('#nodeByShape').onchange=e=>{st.map.node_by_shape=e.target.checked;studioSync();draw(false);};
 function studioCounts(counts) {
   lastCutCounts=counts;let total=Object.values(counts).reduce((a,b)=>a+b,0);

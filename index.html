@@ -245,9 +245,8 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     <input id="pick" type="file" multiple accept="image/*,.heic,.heif,image/heic,image/heif,.pdf,application/pdf" hidden>
   </details></section>
   <section><details id="cutDisclosure" class="panel-disclosure" open><summary aria-label="cut settings"><h2>cut</h2></summary>
-    <div class="row"><label><input id="multiShape" type="checkbox">mix multiple shapes</label></div>
+    <div class="row cut-topline"><button id="multiShape" aria-pressed="false">mix multiple shapes</button><select id="cutShape" aria-label="cut shape" title="Cut shape"></select></div>
     <div id="shapeMix" hidden><div id="shapeShares"></div><canvas id="shapeChart" width="512" height="512" aria-label="cut shape percentages"></canvas><div id="shapeLegend" aria-live="polite"></div></div>
-    <div class="row"><label for="cutShape" class="grow">cut shape</label><select id="cutShape" aria-label="cut shape"></select></div>
     <div class="row"><span class="grow">section size</span><input id="cwv" type="number" step="any" aria-label="section width"><span>×</span><input id="chv" type="number" step="any" aria-label="section height"><span id="cu"></span></div>
     <div class="row" id="cutTotal" role="status"><span class="grow"></span><span id="cutTotalText">0 total cuts</span></div>
     <div id="sl-cut"></div>
@@ -271,16 +270,14 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
   </section>
   <section><details id="gradingDisclosure" class="panel-disclosure"><summary><h2>color grading</h2></summary><div id="sl-grading"></div></details></section>
   <section><details id="grainDisclosure" class="panel-disclosure"><summary><h2>film grain</h2></summary><div id="sl-grain"></div>
-    <div class="row"><button id="grainImport">import grain texture</button><button id="grainClear" hidden>use generated grain</button></div>
-    <div class="note" id="grainName">generated monochrome grain</div>
-    <div class="note">Grain size is measured in pixels at 300 dpi. Imported textures repeat across the canvas. Set amount above zero to apply.</div>
+    <div class="row grain-import-row"><button id="grainImport">import grain texture</button><label for="grainDpi">dpi</label><input id="grainDpi" type="number" min="1" max="9600" step="1" value="300" aria-label="custom grain DPI" title="Imported texture resolution; grain size scales this value"></div>
+    <div class="row" id="grainCustom" hidden><span id="grainName" class="grow"></span><button id="grainClear">clear</button></div>
     <input id="grainFile" type="file" accept="image/*,.heic,.heif" hidden>
   </details></section>
   <section><details id="gradientDisclosure" class="panel-disclosure"><summary><h2>gradient map</h2></summary><div id="sl-gradient"></div>
     <div id="gradientPreview" aria-label="gradient from shadows to highlights"></div>
     <div class="row"><label for="gradientPreset" class="grow">palette</label><select id="gradientPreset"><option value="custom">custom</option><option value="mono">black / white</option><option value="sepia">sepia</option><option value="duotone">blue / cream</option><option value="sunset">violet / orange / cream</option></select></div>
     <div id="gradientStops"></div><div class="row"><button id="gradientAdd">+ color stop</button><span class="grow"></span><button id="gradientReverse">reverse</button></div>
-    <div class="note">Map image brightness to colors, from shadows (0%) to highlights (100%). Set amount above zero to apply.</div>
   </details></section>
   </div>
   <div id="settingsPanel" hidden>
@@ -294,13 +291,12 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     <div id="animsec" hidden>
       <div class="sl"><span>smoothness</span><output id="smoothnessv">12</output><input id="smoothness" type="range" min="4" max="24" step="1" value="12" aria-label="animation smoothness"></div>
       <div class="sl"><span>pace</span><output id="pacev">12 seconds</output><input id="pace" type="range" min="3" max="30" step="1" value="12" aria-label="animation duration"></div>
-      <div class="row"><button id="animpreview">preview animation</button></div>
-      <div class="note">lower pace = faster · higher smoothness = more frames</div>
+      <div class="row animation-preview-row"><button id="animpreview">preview animation</button><span class="note">pace: time / smoothness: fps</span></div>
     </div>
-    <div class="row"><label><input id="lines" type="checkbox"><span>also save portion linework</span></label></div>
+    <input id="lines" type="checkbox" hidden>
     <div id="mapsec" hidden>
-      <div class="row"><span class="grow">start node</span><select id="node_start" aria-label="migration start node"><option value="none">none</option><option value="dot" selected>dot</option><option value="ring">ring</option><option value="square">square</option></select></div>
-      <div class="row"><span class="grow">end node</span><select id="node_end" aria-label="migration end node"><option value="none">none</option><option value="arrow" selected>arrow</option><option value="dot">dot</option><option value="ring">ring</option><option value="square">square</option></select></div>
+      <div class="row"><span class="grow">start node</span><select id="node_start" aria-label="migration start node"><option value="none">none</option><option value="dot" selected>dot</option><option value="ring">ring</option><option value="square">square</option><option value="plus">plus (+)</option></select></div>
+      <div class="row"><span class="grow">end node</span><select id="node_end" aria-label="migration end node"><option value="none">none</option><option value="arrow" selected>arrow</option><option value="dot">dot</option><option value="ring">ring</option><option value="square">square</option><option value="plus">plus (+)</option></select></div>
       <div class="row"><label><input id="nodeByShape" type="checkbox">end nodes by cut shape</label></div><div id="shapeNodes" hidden></div>
       <div class="sl"><span>end node size</span><output id="node_end_sizev">1.00×</output><input id="node_end_size" type="range" min="0.25" max="6" step="0.05" value="1" aria-label="migration end node size"></div>
       <div class="row"><button id="saveMapDefaults">save map settings as default</button></div>
@@ -350,10 +346,7 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     </div>
     <div id="px" role="status"></div>
   </section>
-  <section aria-label="controller mode">
-    <div class="row"><span class="grow">controller mode</span><button id="controllerMode" aria-label="enter canvas-only controller mode">canvas only</button></div>
-    <div class="note">F8 toggles canvas only. Escape returns to the menus.</div>
-  </section>
+  <div class="row"><button id="controllerMode" title="F8 toggles canvas only. Escape returns to the menus.">controller mode</button></div>
   </div>
 </aside>
 <dialog id="motionDialog" aria-label="animation preview"><h2>process preview <button id="motionClose">close</button></h2><img id="gifPreview" alt="collage process animation" hidden><video id="mp4Preview" controls loop playsinline hidden></video></dialog>

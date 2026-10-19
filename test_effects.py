@@ -148,6 +148,18 @@ def test_preview_export_animation_triptych_and_settings_share_effects():
     assert saved['gradient_stops'] == raw['gradient_stops'] and saved['grain_source_id'] == ''
 
 
+def test_custom_grain_dpi_controls_physical_scale():
+    import numpy as np
+    im = Image.new('RGB', (64, 64), '#888888')
+    custom = np.tile(np.array([-1, -.5, .5, 1], dtype=np.float32), (16, 4))
+    base = E.clean(dict(grain=1, grain_dpi=100)); base['seed'] = 1
+    first = E.grain(im, base, 100, custom)
+    doubled = dict(base, grain_dpi=200)
+    assert ImageChops.difference(first, E.grain(im, doubled, 200, custom)).getbbox() is None
+    assert ImageChops.difference(first, E.grain(im, doubled, 100, custom)).getbbox() is not None
+    assert ImageChops.difference(first, E.grain(im, doubled, 100, (custom, 2))).getbbox() is None
+
+
 if __name__ == '__main__':
     for name, fn in sorted(globals().items()):
         if name.startswith('test_'):

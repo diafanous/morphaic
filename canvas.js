@@ -96,14 +96,7 @@ function setupWindowControls(){
     handle.onpointerup=handle.onpointercancel=()=>{drag=null;};
   }
   grip.onkeydown=async event=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;event.preventDefault();const state=await api.window_state(),step=event.shiftKey?50:10;resize(state.width+(event.key==='ArrowRight'?step:event.key==='ArrowLeft'?-step:0),state.height+(event.key==='ArrowDown'?step:event.key==='ArrowUp'?-step:0));};
-  function alignWindowControls(){
-    const panel=$('#settingsPanel').hidden?$('#sideScroll'):$('#settingsPanel');
-    const card=panel.querySelector('section'),header=document.querySelector('aside>header');
-    if(card&&card.getBoundingClientRect().width)header.style.paddingRight=Math.max(0,header.getBoundingClientRect().right-card.getBoundingClientRect().right)+'px';
-  }
-  const alignmentObserver=new ResizeObserver(alignWindowControls);
-  alignmentObserver.observe($('#sideScroll'));alignmentObserver.observe($('#settingsPanel'));
-  alignWindowControls();
+
 
 }
 addEventListener('pywebviewready',setupWindowControls);setupWindowControls();
@@ -122,3 +115,12 @@ addEventListener('keydown',event=>{
   if(event.key==='F8'){event.preventDefault();if(!event.repeat)setControllerMode(!controllerModeActive);}
   else if(event.key==='Escape'&&controllerModeActive){event.preventDefault();setControllerMode(false);}
 },true);
+
+  function alignWindowControls(){
+    const panel=$('#settingsPanel').hidden?$('#sideScroll'):$('#settingsPanel');
+    const card=panel.querySelector('section'),header=document.querySelector('aside>header');
+    if(card&&card.getBoundingClientRect().width)header.style.paddingRight=Math.max(0,header.getBoundingClientRect().right-card.getBoundingClientRect().right)+'px';
+  }
+  const alignmentObserver=new ResizeObserver(alignWindowControls);
+  alignmentObserver.observe($('#sideScroll'));alignmentObserver.observe($('#settingsPanel'));
+  alignWindowControls();

@@ -374,7 +374,7 @@ def test_heic_animation_and_triptych_exports():
     frames = list(C.animation_frames(raw,specs,store))
     items,_ = C._gif_items(C.clean(raw),specs,store)
     final = C.render(C.clean(raw),items,720,Image.BILINEAR)
-    assert len(frames)==35 and ImageChops.difference(frames[-1],final).getbbox() is None
+    assert len(frames)==C.animation_timing(C.clean(raw))[0] and ImageChops.difference(frames[-1],final).getbbox() is None
     gif = Image.open(io.BytesIO(C.export(raw,specs,store,'gif')[0]))
     assert gif.is_animated and gif.info['loop']==0
     with tempfile.TemporaryDirectory() as folder:
@@ -382,7 +382,7 @@ def test_heic_animation_and_triptych_exports():
         path.write_bytes(C.export(raw,specs,store,'mp4')[0])
         reader = imageio_ffmpeg.read_frames(str(path),pix_fmt='rgb24')
         metadata = next(reader)
-        assert len(list(reader))==35 and abs(metadata['duration']-3)<.25
+        assert len(list(reader))==C.animation_timing(C.clean(raw))[0] and abs(metadata['duration']-3)<.25
     triple = Image.open(io.BytesIO(C.export(raw,specs,store,'triptych')[0]))
     assert triple.size==(158,36) and round(triple.info['dpi'][0])==48
     _, normal = C.compose(raw,specs,store,final=True)
@@ -392,7 +392,7 @@ def test_heic_animation_and_triptych_exports():
 def test_migration_node_boundaries_and_scaling():
     import math
     for scale in (.25,1,6):
-        for style in ('none','dot','ring','square','arrow'):
+        for style in ('none','dot','ring','square','plus','arrow'):
             p = C.clean(dict(node_end=style,node_end_size=scale))
             for cx,cy in ((1,0),(0,1),(1,1),(-1,1)):
                 pc = (0,(0,0,1,1),cx,cy,1,1,0,0,0,1,1)
@@ -402,10 +402,24 @@ def test_migration_node_boundaries_and_scaling():
                     assert abs(gap-.045*scale)<1e-9
                 elif style=='square':
                     assert abs(max(abs(cx-end[0]),abs(cy-end[1]))-.045*scale)<1e-9
+                elif style=='plus':
+                    expected = .045*scale*(.3*math.sqrt(2) if cx and cy else 1)
+                    assert abs(gap-expected)<1e-9
                 elif style=='arrow':
                     assert abs(gap-min(.12*scale,math.hypot(cx,cy)/3))<1e-9
                 else:
                     assert gap<1e-9
+
+
+def test_plus_nodes_are_preserved_and_drawn():
+    raw = dict(w=2,h=2,cols=2,rows=2,scatter=.7,node_start='plus',node_end='plus')
+    p = C.clean(raw)
+    assert p['node_start']==p['node_end']=='plus'
+    by_shape = C.clean({**raw,'node_by_shape':True,'node_end_shapes':{'rectangle':'plus'}})
+    assert by_shape['node_end_shapes']['rectangle']=='plus'
+    store = {'source':C.open_source('plus.png',png(64,64,color='red')[1])}
+    doc = pymupdf.open(stream=C._map_doc(p,[{'id':'source','w':2}],store,(2,)),filetype='pdf')
+    assert any(len(d['items'])>=12 for d in doc[0].get_drawings())
 
 
 def test_plain_text_settings_preserve_alterations_without_image_data():
@@ -686,6 +700,21 @@ def test_luminosity_http_exports_and_cut_counts():
         server.SETTINGS_PATH=original_settings
         for sid in source_ids:server.STORE.pop(sid,None)
         http.shutdown();http.server_close()
+
+
+def test_animation_moves_rotates_and_duplicates_together():
+    p = C.clean(dict(w=4,h=3,layers=3,rot=90,scatter=.8))
+    pieces = C.layout(p,[(4,3)],4,3)
+    counts = [0]+[len(C.layout(dict(p,layers=i),[(4,3)],4,3)) for i in range(1,4)]
+    layers = [layer for layer in range(3) for _ in range(counts[layer+1]-counts[layer])]
+    halfway = C.animation_pose(pieces,layers,.5)
+    assert any(abs(pc[6])>1 for pc in pieces)
+    assert any(abs(pc[2]-pc[7])>.01 for pc in pieces)
+    for pc, current, layer in zip(pieces,halfway,layers):
+        assert abs(current[6]-pc[6]*.5)<1e-9
+        assert abs(current[2]-(pc[7]+pc[2])*.5)<1e-9
+        assert current[-1] == (1 if layer==0 else .5)
+    assert all(current[:-1]==pc and current[-1]==1 for pc,current in zip(pieces,C.animation_pose(pieces,layers,1)))
 
 
 if __name__ == "__main__":

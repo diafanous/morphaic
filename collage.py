@@ -59,7 +59,7 @@ def clean(raw):
     p["pts"] = pts[::max(1, -(-len(pts) // 400))]   # drawn points, thinned to <= 400 so the nearest-point search stays cheap
     c = raw.get("curve")
     p["curve"] = [min(max(round(float(v)), 0), 255) for v in c] if isinstance(c, list) and len(c) == 256 else IDENT
-    for key, default, choices in [('node_start', 'dot', ('none', 'dot', 'ring', 'square')), ('node_end', 'arrow', ('none', 'arrow', 'dot', 'ring', 'square'))]:
+    for key, default, choices in [('node_start', 'dot', ('none', 'dot', 'ring', 'square', 'plus')), ('node_end', 'arrow', ('none', 'arrow', 'dot', 'ring', 'square', 'plus'))]:
         value = raw.get(key, default)
         p[key] = value if value in choices else default
     p.update(shapes.clean(raw))
@@ -299,7 +299,12 @@ def _grain_texture(p, store):
         raise ValueError('custom grain image is unavailable; import it again or choose procedural grain')
     if src.pdf:
         raise ValueError('custom grain must be an image, not a PDF')
-    return effects.texture(thumb(src, 0)) if p['grain'] else None
+    if not p['grain']:
+        return None
+    texture = effects.texture(thumb(src, 0))
+    with Image.open(io.BytesIO(src.data)) as image:
+        scale = max(image.size)/max(texture.shape)
+    return texture, scale
 
 
 def compose(raw, specs, store, final=False, long_edge=None):
@@ -357,6 +362,11 @@ def migration_line_end(p, pc):
         trim = radius
     elif style == 'square':
         trim = radius/max(abs(ux), abs(uy))
+    elif style == 'plus':
+        ax, ay = abs(ux), abs(uy)
+        reach = lambda span, component: span/component if component else math.inf
+        trim = max(min(reach(radius, ax), reach(radius*.3, ay)),
+                   min(reach(radius*.3, ax), reach(radius, ay)))
     elif style == 'arrow' and d >= .05:
         trim = min(.12*p['node_end_size'], d/3)
     elif style == 'cut':
@@ -439,6 +449,11 @@ def _map_doc(raw, specs, store, layers):
                 continue
             if style == 'square':
                 sh.draw_rect(pymupdf.Rect((cx-radius)*72, (cy-radius)*72, (cx+radius)*72, (cy+radius)*72))
+                continue
+            if style == 'plus':
+                a = .3
+                cross = [(-a,-1),(a,-1),(a,-a),(1,-a),(1,a),(a,a),(a,1),(-a,1),(-a,a),(-1,a),(-1,-a),(-a,-a),(-a,-1)]
+                sh.draw_polyline([pt((cx+x*radius,cy+y*radius)) for x,y in cross])
                 continue
             if style != 'arrow':
                 continue
@@ -581,51 +596,60 @@ def _gif_label(im, label):
     return im
 
 
+def animation_timing(p):
+    # Maintain smooth playback as duration changes, with bounded export work.
+    frames = min(600, max(36, round(p['pace']*max(12, min(30, 2*p['smoothness'])))))
+    return frames, frames/p['pace']
+
+
+def animation_pose(pieces, layer_ids, progress):
+    t = max(0, min(1, progress)); t = t*t*(3-2*t)
+    return [pc[:2] + tuple(pc[k+5]+(pc[k]-pc[k+5])*t for k in range(2,6))
+            + (pc[6]*t,) + pc[7:] + (1 if layer == 0 else t,)
+            for pc, layer in zip(pieces, layer_ids)]
+
+
 def animation_frames(raw, specs, store):
-    """Stable section geometry through each stage; the last frame is the final collage."""
+    """Copies separate, rotate and migrate together along one eased timeline."""
     p = clean(raw)
     if not specs:
-        raise ValueError("add an image or PDF first")
-    ppi = 720 / max(p["w"], p["h"])
+        raise ValueError('add an image or PDF first')
+    ppi = 720/max(p['w'], p['h'])
     grain_texture = _grain_texture(p, store)
     items, originals = _gif_items(p, specs, store)
-    steps = int(p['smoothness'])
-    sizes = [(w, h) for _, w, h in items]
+    sizes = [(w,h) for _,w,h in items]
     pieces = layout(p, sizes, p['w'], p['h'])
-    counts = [0] + [len(layout(dict(p, layers=i), sizes, p['w'], p['h'])) for i in range(1, int(p['layers'])+1)]
-    first = pieces[:counts[1]]
-    home = [pc[:2] + (pc[7], pc[8], pc[9], pc[10], 0) + pc[7:] for pc in first]
-    q = dict(p, opacity=1, blur=0)
-    original = _gif_original(p, originals, ppi)
-    for _ in range(5):
-        yield _gif_label(original.copy(), 'original file')
-    portions = render(q, items, ppi, Image.BILINEAR, home, grain_texture)
-    for i in range(1, steps+1):
-        yield _gif_label(Image.blend(original, portions, i/steps), 'portioning')
-    for i in range(1, steps+1):
-        t = i/steps
-        rotated = [h[:6] + (pc[6]*t,) + h[7:] for h, pc in zip(home, first)]
-        yield _gif_label(render(q, items, ppi, Image.BILINEAR, rotated, grain_texture), 'rotation')
-    for i in range(1, steps+1):
-        t = i/steps; t = t*t*(3-2*t)
-        migrated = [pc[:2] + tuple(h[k]+(pc[k]-h[k])*t for k in range(2,6)) + pc[6:] for h, pc in zip(home, first)]
-        yield _gif_label(render(q, items, ppi, Image.BILINEAR, migrated, grain_texture), 'migration')
+    counts = [0]+[len(layout(dict(p,layers=i),sizes,p['w'],p['h'])) for i in range(1,int(p['layers'])+1)]
     layer_ids = [layer for layer in range(int(p['layers'])) for _ in range(counts[layer+1]-counts[layer])]
-    for i in range(1, steps+1):
-        t = i/steps
-        accumulated = [pc + (1 if layer == 0 else min(1, max(0, t*(int(p['layers'])-1)-(layer-1))),) for pc, layer in zip(pieces, layer_ids)]
-        yield _gif_label(render(dict(p, opacity=1), items, ppi, Image.BILINEAR, accumulated, grain_texture), 'accumulation')
-    for i in range(1, steps+1):
-        yield _gif_label(render(dict(p, opacity=1+(p['opacity']-1)*i/steps), items, ppi, Image.BILINEAR, pieces, grain_texture), 'opacity')
-    final = render(p, items, ppi, Image.BILINEAR, pieces, grain_texture)
-    for _ in range(10):
+    total,fps = animation_timing(p)
+    lead,tail = max(1,round(.25*fps)),max(1,round(.75*fps))
+    original = _gif_original(p, originals, ppi)
+    for _ in range(lead):
+        yield original.copy()
+    moving = total-lead-tail
+    for i in range(moving):
+        progress = i/max(1,moving-1)
+        frame = render(p,items,ppi,Image.BILINEAR,animation_pose(pieces,layer_ids,progress),grain_texture)
+        fade = min(1,progress/.12);fade = fade*fade*(3-2*fade)
+        yield Image.blend(original,frame,fade) if fade<1 else frame
+    final = render(p,items,ppi,Image.BILINEAR,pieces,grain_texture)
+    for _ in range(tail):
         yield final.copy()
 
 
 def process_gif(raw, specs, store):
     p = clean(raw)
-    duration = max(20, round(p['pace']*1000/(5*int(p['smoothness'])+15)/10)*10)
-    frames = [im.quantize(colors=256) for im in animation_frames(raw, specs, store)]
+    count, fps = animation_timing(p)
+    # Shared palette avoids color flicker between independently quantized frames.
+    items, originals = _gif_items(p, specs, store)
+    preview = render(p,items,720/max(p['w'],p['h']),Image.BILINEAR,grain_texture=_grain_texture(p,store))
+    samples = originals+[preview]
+    atlas = Image.new('RGB',(128*len(samples),128))
+    for i,sample in enumerate(samples):
+        atlas.paste(sample.convert('RGB').resize((128,128)),(128*i,0))
+    palette = atlas.quantize(colors=256)
+    frames = [im.quantize(palette=palette,dither=Image.Dither.NONE) for im in animation_frames(raw,specs,store)]
+    duration = [max(10,(round((i+1)*100/fps)-round(i*100/fps))*10) for i in range(count)]
     buf = io.BytesIO()
     frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], duration=duration,
                    loop=0, disposal=2, optimize=False)
@@ -635,7 +659,7 @@ def process_gif(raw, specs, store):
 def process_mp4(raw, specs, store):
     import imageio_ffmpeg
     p = clean(raw)
-    fps = (5*int(p['smoothness'])+15)/p['pace']
+    _, fps = animation_timing(p)
     with tempfile.TemporaryDirectory(prefix='collage-video-') as folder:
         path = Path(folder) / 'collage-process.mp4'
         writer = None
