@@ -1,10 +1,10 @@
-# Unreleased
+# Morphaic 1.1.0
 
-- GIF export has a max-size dropdown (1, 2, 5, 10, 25, 50 MB; 50 MB is the cap). Frames shrink until the GIF fits.
-- Animation pace now defaults to 6 seconds (was 12), so GIF and MP4 exports are shorter and smaller by default.
-- Map settings: typeable opacity percentages, and separate colours for start nodes, end nodes and connecting lines.
-- GIF and MP4 can animate the migration map instead of the collage (new *animate* dropdown).
-- The map export is now a single full-quality vector PDF (the drawing the stage shows) instead of a zip of four files.
+- GIF export has a max-size dropdown (1, 2, 5, 10, 25 or 50 MB). 50 MB is both the largest option and the default, so a GIF that would be bigger is now shrunk until it fits; if shrinking would take it below 120 pixels, the export says so. The animation preview obeys the same limit.
+- GIF and MP4 can animate the migration map instead of the collage (new *animate* dropdown): each line grows from its start node while the section outline travels, turns and scales, in the map's own colours and node styles; the map settings appear while it is selected, and the files are named collage-map-process.gif / .mp4.
+- Animation pace now defaults to 6 seconds (was 12), so GIF and MP4 exports have fewer frames by default.
+- Map settings: a typeable percentage beside every opacity slider, and separate colours for start nodes, end nodes and connecting lines (the nodes follow the line colour until you pick one; the two node colours are saved with the map defaults).
+- The map export is now a single full-quality vector PDF with real PDF layers (the drawing the stage shows) instead of a zip of four files. "Also save portion linework" still adds a second file, which makes the download a zip. InDesign templates still receive the separate initial, migration and final drawings.
 
 # Morphaic 1.0.1
 

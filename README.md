@@ -2,7 +2,7 @@
 
 ## Morphaic 1.0
 
-Morphaic 1.0 builds on v0.2.0 with a glass workspace, color effects, dense relief exports and integrated desktop controls. Run `uv run server.py` for the browser UI, or build the Windows executable with `./build-test.ps1` after `uv sync --extra desktop --group build`. The executable is `dist/morphaic-1.0.1.exe`.
+Morphaic 1.0 builds on v0.2.0 with a glass workspace, color effects, dense relief exports and integrated desktop controls. Run `uv run server.py` for the browser UI, or build the Windows executable with `./build-test.ps1` after `uv sync --extra desktop --group build`. The executable is `dist/morphaic-1.1.0.exe`.
 
 The desktop app integrates minimize, maximize/restore and close into a glass bubble beside Export. Drag the app name to move the window, double-click it to maximize, and drag any window edge or corner to resize. F11 toggles full screen; Escape leaves full screen.
 
@@ -50,7 +50,7 @@ The **cut shape** selector starts with the existing rectangles and cell sizes. C
 
 Version 0.2.0 introduces the morphaic name, relief exports, French-cleat models, mixed cut shapes and the cutting mat. Cut, collage, tone and layers have collapsible panels with disclosure icons on the right. The export icon opens configurations under an **export** header, and display units sit beside each source's page size.
 
-Release downloads include `morphaic-1.0.1.exe` and `morphaic-1.0.1-setup.exe` for Windows and separate `morphaic-1.0.1-macos-apple-silicon.zip` and `morphaic-1.0.1-macos-intel.zip` archives for macOS 15 or later. On a Mac, unzip the matching archive and move `morphaic.app` into Applications. Earlier release downloads retain their historical autocollage names. Mac builds use ad-hoc signing and are not Apple-notarized; macOS may require approval in System Settings > Privacy & Security on first launch.
+Release downloads include `morphaic-1.1.0.exe` and `morphaic-1.1.0-setup.exe` for Windows and separate `morphaic-1.1.0-macos-apple-silicon.zip` and `morphaic-1.1.0-macos-intel.zip` archives for macOS 15 or later. On a Mac, unzip the matching archive and move `morphaic.app` into Applications. Earlier release downloads retain their historical autocollage names. Mac builds use ad-hoc signing and are not Apple-notarized; macOS may require approval in System Settings > Privacy & Security on first launch.
 
 Run `uv run --extra desktop desktop.py` to open morphaic in its own resizable window. This keeps the existing HTML interface and Python image engine, but does not open an external browser. Windows needs the Microsoft Edge WebView2 Runtime.
 
@@ -60,7 +60,7 @@ Version 0.1.3 adds up to 16 layers, Ctrl+Z/Ctrl+Y edit history, a fixed sidebar 
 
 Version 0.1.4 adds native Mac builds and a lightweight TXT export of slider values, tone curves, drawing guide points, source metadata, and map settings. The TXT file contains readable UTF-8 JSON and does not embed source images.
 
-GIF and MP4 exports show the collage progression at a 720-pixel long edge. Smoothness controls frame count and pace controls duration (6 seconds by default); both have an animation preview. The **animate** dropdown switches GIF and MP4 from the collage to the migration map: each line grows from its start node while the section's outline travels, turns and scales, in the map's own colours, opacities and node styles. GIF exports also have a **max gif size** dropdown (1, 2, 5, 10, 25 or 50 MB; 50 MB is the largest allowed and the default). If the first encode is over the chosen size, the frames are shrunk until the file fits, and if even a 120-pixel GIF won't fit you are told to pick a bigger size, a shorter pace or lower smoothness. The preview obeys the same limit. Triptych exports a PNG with the original, collage, and styled migration map in three equal panels. Map start/end markers are selectable; end markers can be scaled, and migration lines meet their edges. Start nodes, end nodes and the lines between them each have their own colour (the nodes follow the line colour until you pick one), and every map opacity has a number box beside its slider where you can type a percentage. Use "save map settings as default" to remember map styling for future launches.
+GIF and MP4 exports show the collage progression (or the migration map) at up to a 720-pixel long edge. Smoothness controls frame count and pace controls duration (6 seconds by default); both have an animation preview. The **animate** dropdown switches GIF and MP4 from the collage to the migration map: each line grows from its start node while the section's outline travels, turns and scales, in the map's own colours, opacities and node styles. GIF exports also have a **max gif size** dropdown (1, 2, 5, 10, 25 or 50 MB; 50 MB is the largest allowed and the default). If the first encode is over the chosen size, the frames are shrunk until the file fits, and if shrinking would take it below 120 pixels you are told to pick a bigger size, a shorter pace or lower smoothness. The preview obeys the same limit. Triptych exports a PNG with the original, collage, and styled migration map in three equal panels. Map start/end markers are selectable; end markers can be scaled, and migration lines meet their edges. Start nodes, end nodes and the lines between them each have their own colour (the nodes follow the line colour until you pick one), and every map opacity has a number box beside its slider where you can type a percentage. Use "save map settings as default" to remember map styling for future launches.
 
 ## How it works
 
@@ -112,7 +112,7 @@ The preview is rendered by the same engine as the export, at screen size. Slider
 
 ## Windows test installer and canvas updates
 
-Run `./build-installer.ps1` with Inno Setup 6 or newer installed (or pass `-Compiler` with the ISCC.exe path). It builds `dist/morphaic-1.0.1-setup.exe`, a per-user installer with Start menu shortcut, optional desktop shortcut and uninstaller. The standalone `dist/morphaic-1.0.1.exe` remains available. Both use `assets/morphaic.ico`; its vector master and regeneration script are included. Windows builds are unsigned. The build scripts create local artifacts; tagged GitHub builds publish releases.
+Run `./build-installer.ps1` with Inno Setup 6 or newer installed (or pass `-Compiler` with the ISCC.exe path). It builds `dist/morphaic-1.1.0-setup.exe`, a per-user installer with Start menu shortcut, optional desktop shortcut and uninstaller. The standalone `dist/morphaic-1.1.0.exe` remains available. Both use `assets/morphaic.ico`; its vector master and regeneration script are included. Windows builds are unsigned. The build scripts create local artifacts; tagged GitHub builds publish releases.
 
 The liquid-glass study uses translucent cards, soft reflections and a scrollbar four pixels from the right edge. Wheel zooms about the pointer; Shift+wheel pans horizontally and Alt+wheel pans vertically. Space+drag or middle-drag pans the canvas. Arrow keys pan when the canvas has focus. Fit (or Ctrl/Cmd+0) restores the view. These controls do not alter export dimensions. In the cutting mat, arrow keys and Space retain keyboard knife control; middle-drag and wheel still navigate.
 
@@ -125,3 +125,5 @@ For automatic placement, set image frame Script Labels in InDesign to `morphaic:
 Export fills a copy of the template and saves a ZIP containing INDD, IDML, PDF and settings. Generated drawings are embedded; other linked assets remain as supplied by the template. The original file is unchanged. There is no fixed number of drawings or hard-coded layout: the selected template's frames determine placement.
 
 Version 1.0.1: mixed-shape toggle and shape selector share a row; controller mode uses a compact button with shortcut tooltip. Migration nodes include plus signs. GIF/MP4 exports use one eased transition for duplication, rotation and movement, with frame density based on duration and a shared GIF palette.
+
+Version 1.1.0: GIF export has a max-size dropdown (1 to 50 MB; 50 MB is the cap) and shrinks the frames until the file fits. GIF and MP4 can animate the migration map instead of the collage, and animations default to 6 seconds. The map export is one full-quality vector PDF, the drawing shown in the preview. Map settings gain typeable opacity percentages and separate colours for start nodes, end nodes and connecting lines.

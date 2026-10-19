@@ -1,8 +1,8 @@
 #ifndef AppVersion
-  #define AppVersion "1.0.1"
+  #define AppVersion "1.1.0"
 #endif
 #ifndef SourceExe
-  #define SourceExe "..\dist\morphaic-1.0.1.exe"
+  #define SourceExe "..\dist\morphaic-1.1.0.exe"
 #endif
 
 [Setup]
@@ -28,7 +28,7 @@ SolidCompression=yes
 DisableProgramGroupPage=yes
 CloseApplications=yes
 RestartApplications=no
-VersionInfoVersion=1.0.1.0
+VersionInfoVersion=1.1.0.0
 VersionInfoDescription=Morphaic Test Setup
 ChangesAssociations=no
 
