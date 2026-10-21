@@ -373,7 +373,7 @@ def test_heic_animation_and_triptych_exports():
     raw = dict(w=1,h=.75,dpi=48,rot=35,scatter=.6,layers=2,opacity=.6,smoothness=4,pace=3)
     frames = list(C.animation_frames(raw,specs,store))
     items,_ = C._gif_items(C.clean(raw),specs,store)
-    final = C.render(C.clean(raw),items,720,Image.BILINEAR)
+    final = C.render(C.clean(raw),items,raw['dpi'],Image.BILINEAR)
     assert len(frames)==C.animation_timing(C.clean(raw))[0] and ImageChops.difference(frames[-1],final).getbbox() is None
     gif = Image.open(io.BytesIO(C.export(raw,specs,store,'gif')[0]))
     assert gif.is_animated and gif.info['loop']==0
@@ -389,24 +389,15 @@ def test_heic_animation_and_triptych_exports():
     assert ImageChops.difference(triple.crop((55,0,103,36)),normal).getbbox() is None
 
 
-def test_gif_fits_the_chosen_size():
+def test_gif_keeps_full_resolution_without_size_cap():
     store, specs = {'n': C.open_source('noise.png', png(300, 200, 100)[1])}, [{'id': 'n', 'w': 3, 'page': 0}]
-    raw = dict(w=3, h=2, scatter=.6, layers=2, smoothness=4, pace=3)
+    raw = dict(w=3, h=2, dpi=300, scatter=.6, layers=2, smoothness=4, pace=3)
     big = C.export({**raw, 'gifmb': 50}, specs, store, 'gif')[0]
-    assert len(big) > 1_000_000 and Image.open(io.BytesIO(big)).width == 720              # noise: too big for 1 MB at full size
+    assert len(big) > 1_000_000 and Image.open(io.BytesIO(big)).size == (900,600)
     small = C.export({**raw, 'gifmb': 1}, specs, store, 'gif')[0]
     gif = Image.open(io.BytesIO(small))
-    assert len(small) <= 1_000_000 and gif.is_animated and gif.width < 720 and gif.info['loop'] == 0
-    assert C.clean({'gifmb': 999})['gifmb'] == 50 and C.clean({'gifmb': 0})['gifmb'] == 1   # the dropdown's range is also enforced server-side
-    floor, C.GIF_MIN_EDGE = C.GIF_MIN_EDGE, 700                                            # a floor it can't meet: clear error, no huge file
-    try:
-        C.export({**raw, 'gifmb': 1}, specs, store, 'gif')
-    except ValueError as e:
-        assert "can't fit the GIF in 1 MB" in str(e)
-    else:
-        raise AssertionError('no error')
-    finally:
-        C.GIF_MIN_EDGE = floor
+    assert len(small)>1_000_000 and gif.is_animated and gif.size==(900,600) and gif.info['loop']==0
+    assert 'gifmb' not in C.clean({'gifmb':1})
 
 
 def test_animation_pace_default_is_six_seconds_everywhere():
@@ -452,7 +443,7 @@ def test_map_exports_one_drawing_and_can_be_animated():
     frames = list(C.animation_frames(anim, specs, store))
     assert len(frames) == C.animation_timing(C.clean(anim))[0]
     page = pymupdf.open(stream=C.migration_pdf(anim, specs, store), filetype='pdf')[0]
-    z = 720 / max(page.rect.width, page.rect.height)
+    z = max(C.animation_size(C.clean(anim))) / max(page.rect.width, page.rect.height)
     pix = page.get_pixmap(matrix=pymupdf.Matrix(z, z), alpha=False)
     still = Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
     assert ImageChops.difference(frames[-1], still).getbbox() is None                    # the last frame IS the finished map

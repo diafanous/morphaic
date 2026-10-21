@@ -135,7 +135,8 @@ def test_preview_export_animation_triptych_and_settings_share_effects():
     final_frame = None
     for frame in C.animation_frames(raw, specs, store):
         final_frame = frame
-    same(preview, final_frame)
+    assert preview.size == (720,720)
+    same(C.compose(raw,specs,store,final=True)[1], final_frame)
     _, expected = C.compose(raw, specs, store, final=True)
     exported = Image.open(io.BytesIO(C.export(raw, specs, store, 'png')[0]))
     same(exported, expected)

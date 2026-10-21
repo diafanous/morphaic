@@ -211,6 +211,7 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
+<div id="desktopTitlebar" class="pywebview-drag-region" title="Drag to move; double-click to maximize or restore" hidden>morphaic</div>
 <main id="stage">
   <div id="frame" hidden><img id="view" alt="collage preview"><canvas id="ink" aria-label="drawing layer"></canvas></div>
   <div id="tools" hidden>
@@ -293,7 +294,10 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
       <div class="row"><label class="grow" for="anim">animate</label><select id="anim" aria-label="what the animation shows"><option value="collage" selected>collage</option><option value="map">migration map</option></select></div>
       <div class="sl"><span>smoothness</span><output id="smoothnessv">12</output><input id="smoothness" type="range" min="4" max="24" step="1" value="12" aria-label="animation smoothness"></div>
       <div class="sl"><span>pace</span><output id="pacev">6 seconds</output><input id="pace" type="range" min="3" max="30" step="1" value="6" aria-label="animation duration"></div>
-      <div class="row" id="gifsizerow"><label class="grow" for="gifmb">max gif size</label><select id="gifmb" aria-label="maximum GIF file size"><option value="1">1 MB</option><option value="2">2 MB</option><option value="5">5 MB</option><option value="10">10 MB</option><option value="25">25 MB</option><option value="50" selected>50 MB</option></select></div>
+      <div class="row"><label class="grow" for="anim_resolution">resolution</label><select id="anim_resolution" aria-label="animation resolution"><option value="full" selected>full resolution</option><option value="2160">2160 px long edge</option><option value="1440">1440 px long edge</option><option value="1080">1080 px long edge</option><option value="720">720 px long edge</option></select></div>
+      <div class="row"><label class="grow" for="anim_renderer">render with</label><select id="anim_renderer" aria-label="animation renderer"><option value="cpu" selected>CPU</option><option value="gpu">GPU when available</option></select></div>
+      <p class="note" id="animationBackend" role="status">GPU accelerates collage compositing and supported MP4 encoding. GIF encoding and map drawing use CPU; unavailable GPU resources fall back to CPU.</p>
+      <p class="note" id="animationEstimate" role="status" aria-live="polite">Add an image to estimate render time.</p>
       <div class="row animation-preview-row"><button id="animpreview">preview animation</button><span class="note">pace: time / smoothness: fps</span></div>
     </div>
     <input id="lines" type="checkbox" hidden>
@@ -389,7 +393,7 @@ const SL = {
 const P = {cw:.25,ch:.25}, SLIDER = {}, st = {files: [], w: 0, h: 0, touched: false, dpi: 300, fmt: 'png', bg: '#f4f2ee', unit: 'in', seed: 1,
   grid: false,   // guide grid overlay on the preview
   // migration map, per layer: tone, line opacity, paper colour, paper opacity (0 = no paper)
-  map: {smoothness: 12, pace: 6, gifmb: 50, anim: 'collage', node_start: 'dot', node_end: 'arrow', node_end_size: 1, m1c: '#8a8a90', m1o: .8, m1p: '#f4f2ee', m1a: 1, m2c: '#ff5a36', m2s: '#ff5a36', m2e: '#ff5a36', m2o: .8, m2p: '#f4f2ee', m2a: 0, m3c: '#18181b', m3o: 1, m3p: '#f4f2ee', m3a: 0}};
+  map: {smoothness: 12, pace: 6, anim_resolution: 'full', anim_renderer: 'cpu', anim: 'collage', node_start: 'dot', node_end: 'arrow', node_end_size: 1, m1c: '#8a8a90', m1o: .8, m1p: '#f4f2ee', m1a: 1, m2c: '#ff5a36', m2s: '#ff5a36', m2e: '#ff5a36', m2o: .8, m2p: '#f4f2ee', m2a: 0, m3c: '#18181b', m3o: 1, m3p: '#f4f2ee', m3a: 0}};
 const show = v => +(v * UN[st.unit]).toFixed(Math.abs(v * UN[st.unit]) < .1 ? 4 : st.unit === 'mm' ? 1 : 2);
 const toIn = v => v / UN[st.unit];
 
@@ -623,7 +627,7 @@ $('#oh').oninput = () => { if (+$('#oh').value > 0) { st.h = toIn(+$('#oh').valu
 $('#dpi').oninput = () => { if (+$('#dpi').value > 0) { st.dpi = +$('#dpi').value; outUI(); } };
 function outputSections(f) {   // which option panels the chosen file type needs
   const anim = ['gif', 'mp4'].includes(f);
-  $('#animsec').hidden = !anim; $('#gifsizerow').hidden = f !== 'gif';
+  $('#animsec').hidden = !anim;
   $('#mapsec').hidden = !(['map', 'triptych'].includes(f) || (anim && st.map.anim === 'map'));   // a map animation uses the map's styling
 }
 function selectExportFormat(f) {
@@ -648,6 +652,7 @@ const body = () => JSON.stringify({
   map: st.fmt === 'map', grid: st.grid, lines: $('#lines').checked, luminosity:{...st.lum,source:'collage'}});
 let busy = false, again = null;
 async function draw(fast) {
+  scheduleAnimationEstimate();
   if (window.studioSchedule) studioSchedule();
   if (!st.files.length) return;
   if (busy) { again = again === false ? false : fast; return; }
@@ -718,6 +723,32 @@ $('#saveMapDefaults').onclick = async () => {
   finally { b.disabled = false; }
 };
 let motionUrl = null;
+let animationEstimateTimer=null,animationEstimateVersion=0,animationEstimateKey='',animationEstimateAbort=null;
+const animationTime=seconds=>seconds<60?Math.ceil(seconds)+' sec':seconds<3600?Math.ceil(seconds/60)+' min':(seconds/3600).toFixed(1)+' hr';
+function scheduleAnimationEstimate(force=false){
+  if(!['gif','mp4'].includes(st.fmt))return;
+  const request=JSON.parse(body());request.format=st.fmt;
+  const key=JSON.stringify(request);
+  if(!force&&key===animationEstimateKey)return;
+  animationEstimateKey=key;
+  const version=++animationEstimateVersion;
+  clearTimeout(animationEstimateTimer);animationEstimateAbort?.abort();
+  const label=$('#animationEstimate');
+  if(!st.files.length){label.textContent='Add an image to estimate render time.';return;}
+  label.textContent='Estimating render time…';
+  animationEstimateTimer=setTimeout(async()=>{
+    const controller=new AbortController();animationEstimateAbort=controller;
+    try{
+      const response=await fetch('/animation-estimate',{method:'POST',body:key,signal:controller.signal});
+      const result=await response.json();
+      if(version!==animationEstimateVersion)return;
+      if(response.status===429){animationEstimateTimer=setTimeout(()=>scheduleAnimationEstimate(true),1000);return;}
+      if(!response.ok)throw Error(result.error);
+      label.textContent=`${result.width} × ${result.height} px · ${result.frames} frames · about ${animationTime(result.seconds_low)}–${animationTime(result.seconds_high)} to render (estimate)`;
+      $('#animationBackend').textContent=`${result.renderer==='gpu'?'GPU compositing':'CPU rendering'} · ${result.encoder==='GIF (CPU)'?'GIF encoding on CPU':result.encoder==='libx264'?'MP4 encoding on CPU':'hardware MP4 encoding'}${result.reason?' · CPU fallback: '+result.reason:''}. GPU availability can change during export.`;
+    }catch(error){if(error.name!=='AbortError'&&version===animationEstimateVersion)label.textContent='Estimate unavailable: '+error.message;}
+  },600);
+}
 function motionLabels() {
   for (const id of ['m1o', 'm1a', 'm2o', 'm2a', 'm3o', 'm3a']) {   // opacity percentages next to the sliders
     const f = $('#' + id + '_pct'); if (f && document.activeElement !== f) f.value = Math.round(st.map[id] * 100);
@@ -725,6 +756,7 @@ function motionLabels() {
   $('#node_end_sizev').textContent = (+st.map.node_end_size).toFixed(2) + '×';
   $('#smoothnessv').textContent = st.map.smoothness;
   $('#pacev').textContent = st.map.pace + ' seconds';
+  scheduleAnimationEstimate();
 }
 function clearMotion() {
   $('#mp4Preview').pause(); $('#mp4Preview').removeAttribute('src'); $('#mp4Preview').load();
@@ -891,3 +923,4 @@ info(); outUI(); curveSet(false);
 <script src="/templates.js"></script>
 </body>
 </html>
+

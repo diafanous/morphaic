@@ -90,7 +90,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;bac
 
 .export-topline{flex-wrap:nowrap;gap:10px}.export-topline #exportfolder{min-width:0;width:0}.export-topline button{flex-shrink:0}
 
-body.desktop-window{grid-template-columns:minmax(0,1fr) 470px}
+body.desktop-window{grid-template-columns:minmax(0,1fr) 470px;grid-template-rows:36px minmax(0,1fr)}
+#desktopTitlebar{grid-column:1/-1;grid-row:1;display:flex;align-items:center;justify-content:center;position:relative;cursor:move;user-select:none;touch-action:none;font-size:11px;letter-spacing:.04em;color:var(--dim);border-bottom:1px solid var(--glass-edge);background:linear-gradient(145deg,var(--glass-shine),transparent),var(--glass)}
+.desktop-window>#stage{grid-column:1;grid-row:2}
+.desktop-window>aside{grid-column:2;grid-row:2}
 .desktop-window header{gap:5px}
 .desktop-window #panelTitle{cursor:move;user-select:none}
 .desktop-window header>button{flex-shrink:0}
@@ -102,7 +105,8 @@ body.desktop-window{grid-template-columns:minmax(0,1fr) 470px}
 #desktopResize{position:fixed;right:0;bottom:0;width:16px;height:16px;z-index:50;cursor:nwse-resize;color:var(--dim);touch-action:none}
 
 body.controller-mode{grid-template-columns:minmax(0,1fr);grid-template-rows:1fr}
-.controller-mode>aside,.controller-mode #tools,.controller-mode #viewNavigation,.controller-mode #desktopResize{display:none!important}
+.controller-mode>aside,.controller-mode #tools,.controller-mode #viewNavigation,.controller-mode #desktopResize,.controller-mode #desktopTitlebar{display:none!important}
+.controller-mode>#stage{grid-column:1;grid-row:1}
 .controller-mode #stage{margin:0;border-radius:0}
 
 .window-resize-edge{position:fixed;z-index:60;touch-action:none}
@@ -123,3 +127,4 @@ header #undo:disabled,header #redo:disabled{opacity:1;color:#777}
 .grain-import-row{flex-wrap:nowrap;gap:8px}.grain-import-row #grainImport{margin-right:auto}.grain-import-row #grainDpi{width:56px;min-width:0}
 #grainName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .animation-preview-row{gap:8px;flex-wrap:nowrap}.animation-preview-row .note{font-size:9px;white-space:nowrap;margin:0}
+

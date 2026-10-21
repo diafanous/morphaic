@@ -69,6 +69,8 @@ function setupWindowControls(){
   if(!api?.window_action||document.body.classList.contains('desktop-window'))return;
   document.body.classList.add('desktop-window');
   const controls=$('#windowControls');controls.hidden=false;
+  const titlebar=$('#desktopTitlebar');titlebar.hidden=false;
+  titlebar.ondblclick=()=>api.window_action('maximize').catch(error=>toast(String(error)));
   $('#panelTitle').classList.add('pywebview-drag-region');
   $('#panelTitle').title='Drag to move; double-click to maximize';
   $('#panelTitle').ondblclick=()=>api.window_action('maximize');
@@ -124,3 +126,4 @@ addEventListener('keydown',event=>{
   const alignmentObserver=new ResizeObserver(alignWindowControls);
   alignmentObserver.observe($('#sideScroll'));alignmentObserver.observe($('#settingsPanel'));
   alignWindowControls();
+
