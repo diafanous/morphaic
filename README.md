@@ -2,7 +2,7 @@
 
 ## Morphaic 1.0
 
-Morphaic 1.0 builds on v0.2.0 with a glass workspace, color effects, dense relief exports and integrated desktop controls. Run `uv run server.py` for the browser UI, or build the Windows executable with `./build-test.ps1` after `uv sync --extra desktop --group build`. The executable is `dist/morphaic-1.1.0.exe`.
+Morphaic 1.2.0 adds full-resolution animation exports with optional GPU acceleration, smooth map line gradients, shared hue/hex color tools, Triptych PDF exports and a full-width desktop drag bar. Run `uv run server.py` for the browser UI, or build the Windows executable with `./build-test.ps1` after `uv sync --extra desktop --group build`. The executable is `dist/morphaic-1.2.0.exe`.
 
 The desktop app integrates minimize, maximize/restore and close into a glass bubble beside Export. Drag the full-width top bar or the app name to move the window, double-click either to maximize or restore, and drag any window edge or corner to resize. F11 toggles full screen; Escape leaves full screen.
 
@@ -50,7 +50,7 @@ The **cut shape** selector starts with the existing rectangles and cell sizes. C
 
 Version 0.2.0 introduces the morphaic name, relief exports, French-cleat models, mixed cut shapes and the cutting mat. Cut, collage, tone and layers have collapsible panels with disclosure icons on the right. The export icon opens configurations under an **export** header, and display units sit beside each source's page size.
 
-Release downloads include `morphaic-1.1.0.exe` and `morphaic-1.1.0-setup.exe` for Windows and separate `morphaic-1.1.0-macos-apple-silicon.zip` and `morphaic-1.1.0-macos-intel.zip` archives for macOS 15 or later. On a Mac, unzip the matching archive and move `morphaic.app` into Applications. Earlier release downloads retain their historical autocollage names. Mac builds use ad-hoc signing and are not Apple-notarized; macOS may require approval in System Settings > Privacy & Security on first launch.
+Release downloads include `morphaic-1.2.0.exe` and `morphaic-1.2.0-setup.exe` for Windows and separate `morphaic-1.2.0-macos-apple-silicon.zip` and `morphaic-1.2.0-macos-intel.zip` archives for macOS 15 or later. On a Mac, unzip the matching archive and move `morphaic.app` into Applications. Earlier release downloads retain their historical autocollage names. Mac builds use ad-hoc signing and are not Apple-notarized; macOS may require approval in System Settings > Privacy & Security on first launch.
 
 Run `uv run --extra desktop desktop.py` to open morphaic in its own resizable window. This keeps the existing HTML interface and Python image engine, but does not open an external browser. Windows needs the Microsoft Edge WebView2 Runtime.
 
@@ -116,7 +116,7 @@ The preview is rendered by the same engine as the export, at screen size. Slider
 
 ## Windows test installer and canvas updates
 
-Run `./build-installer.ps1` with Inno Setup 6 or newer installed (or pass `-Compiler` with the ISCC.exe path). It builds `dist/morphaic-1.1.0-setup.exe`, a per-user installer with Start menu shortcut, optional desktop shortcut and uninstaller. The standalone `dist/morphaic-1.1.0.exe` remains available. Both use `assets/morphaic.ico`; its vector master and regeneration script are included. Windows builds are unsigned. The build scripts create local artifacts; tagged GitHub builds publish releases.
+Run `./build-installer.ps1` with Inno Setup 6 or newer installed (or pass `-Compiler` with the ISCC.exe path). It builds `dist/morphaic-1.2.0-setup.exe`, a per-user installer with Start menu shortcut, optional desktop shortcut and uninstaller. The standalone `dist/morphaic-1.2.0.exe` remains available. Both use `assets/morphaic.ico`; its vector master and regeneration script are included. Windows builds are unsigned. The build scripts create local artifacts; tagged GitHub builds publish releases.
 
 The liquid-glass study uses translucent cards, soft reflections and a scrollbar four pixels from the right edge. Wheel zooms about the pointer; Shift+wheel pans horizontally and Alt+wheel pans vertically. Space+drag or middle-drag pans the canvas. Arrow keys pan when the canvas has focus. Fit (or Ctrl/Cmd+0) restores the view. These controls do not alter export dimensions. In the cutting mat, arrow keys and Space retain keyboard knife control; middle-drag and wheel still navigate.
 

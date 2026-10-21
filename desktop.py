@@ -69,7 +69,7 @@ def app_icon() -> str:
 def create_desktop_window(webview, url, smoke=False):
     api = DesktopAPI()
     window = webview.create_window(
-        'morphaic smoke test' if smoke else 'morphaic 1.1.0', url,
+        'morphaic smoke test' if smoke else 'morphaic 1.2.0', url,
         width=840 if smoke else 1280, height=620 if smoke else 900,
         min_size=(840, 620), frameless=True, easy_drag=False, js_api=api,
     )

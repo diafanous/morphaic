@@ -4,7 +4,7 @@ P.grain_source_id = '';
 P.grain_source_name = '';
 P.gradient_stops = [{position:0,color:'#000000'},{position:1,color:'#ffffff'}];
 const iterationDefaults = copy(editSnapshot());
-$('#panelTitle').title = 'morphaic 1.1.0';
+$('#panelTitle').title = 'morphaic 1.2.0';
 
 function editAction(action) {
   finishHistory(); beginHistory(true);
@@ -175,3 +175,4 @@ $('#grainFile').onchange=async event=>{
 };
 $('#grainClear').onclick=()=>editAction(()=>{P.grain_source_id='';P.grain_source_name='';effectsSync();draw(false);});
 effectsSync();
+

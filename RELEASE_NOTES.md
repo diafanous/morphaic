@@ -1,3 +1,14 @@
+# Morphaic 1.2.0
+
+- Full-width desktop title bar makes the window easier to drag; double-click maximizes or restores it.
+- GIF and MP4 default to full resolution, with 2160, 1440, 1080 and 720-pixel long-edge options and measured render-time estimates. The GIF MB cap and automatic shrinking are removed; frames encode incrementally.
+- Optional GPU collage compositing and supported hardware MP4 encoding, with CPU fallback. Source transforms, GIF encoding and map drawing remain CPU work.
+- Map exports always produce one drawing as vector PDF, PNG or TIFF at the selected quality, with no ZIP or extra linework.
+- Map lines gain stroke-width controls, destination cut-shape colors independent of marker glyphs, and smooth tone/opacity gradients. Start and end nodes have independent opacity percentages.
+- Every tone swatch has hue, hex, saturation/lightness and color-picker tools, including dynamic gradient stops. Opacity controls show editable percentages and percentage tooltips.
+- Triptych has a separate PNG/PDF submenu. PDF keeps the map panel as vector artwork and image panels at the selected DPI.
+- Windows and both Mac architectures are built and smoke-tested before publishing.
+
 # Morphaic 1.1.0
 
 - GIF export has a max-size dropdown (1, 2, 5, 10, 25 or 50 MB). 50 MB is both the largest option and the default, so a GIF that would be bigger is now shrunk until it fits; if shrinking would take it below 120 pixels, the export says so. The animation preview obeys the same limit.
