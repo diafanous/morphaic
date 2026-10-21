@@ -128,3 +128,18 @@ header #undo:disabled,header #redo:disabled{opacity:1;color:#777}
 #grainName{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .animation-preview-row{gap:8px;flex-wrap:nowrap}.animation-preview-row .note{font-size:9px;white-space:nowrap;margin:0}
 
+.tone-control{display:inline-flex;align-items:center;gap:3px;flex-shrink:0}
+.tone-edit{font-size:14px;line-height:1;padding:1px 3px!important;min-width:16px;border:1px solid var(--glass-edge);border-radius:5px}
+.gradient-stop{grid-template-columns:44px 1fr 52px 20px 24px}
+#toneEditor{margin:auto;width:min(380px,calc(100vw - 32px));padding:22px;border:1px solid var(--dim);border-radius:18px;background:var(--panel);color:var(--fg)}
+#toneEditor::backdrop{background:#0009}
+#toneEditor h2{margin-bottom:18px;font-size:15px}
+#toneEditor>.row{margin-bottom:16px}
+#toneEditor>label{display:flex;justify-content:space-between;margin-top:12px}
+#toneEditor>input[type=range]{width:100%;margin:8px 0}
+#toneEditor input[type=color]{width:48px;height:28px}
+#toneEditor #toneHex{width:100px;font-size:14px}
+#toneEditor #toneHex:invalid{border-color:#e78787}
+#toneEditor footer{display:flex;justify-content:flex-end;margin-top:18px}
+#toneEditor footer button{padding:6px 16px;border:1px solid var(--dim);border-radius:8px}
+

@@ -15,7 +15,7 @@ The desktop app integrates minimize, maximize/restore and close into a glass bub
 - Relief spacing reaches **0.01 mm**. The old 500,000-vertex ceiling is removed. Compact mesh arrays and chunked binary STL encoding support denser meshes; the app shows one estimated file size at the bottom of export settings and checks available physical memory before exporting. Model size, format and backing affect memory requirements. The live preview remains lightweight.
 - The cutting mat is a monochrome overlay within the canvas area. Freehand/point cuts, seal/lift, saved stencils, keyboard controls, sound and cut undo/redo remain available.
 
-Validation: `uv run test_collage.py`, `uv run test_animation.py`, `uv run test_effects.py`, `uv run test_relief_quality.py`, and `node test_controls.js`. `test_iteration_ui.cjs` and `test_animation_ui.cjs` use Playwright and installed Edge against an isolated local server (default `http://127.0.0.1:8872`, overridden with `MORPHAIC_TEST_URL`). Its server must use a temporary settings path and export directory because it tests persistent preferences and saves an export. The dense-mesh regression generates 508,362 vertices and 1,016,720 triangles at 0.01 mm spacing and checks the resulting binary STL.
+Validation: `uv run test_collage.py`, `uv run test_animation.py`, `uv run test_map_exports.py`, `uv run test_effects.py`, `uv run test_relief_quality.py`, and `node test_controls.js`. `test_iteration_ui.cjs`, `test_animation_ui.cjs` and `test_map_ui.cjs` use Playwright and installed Edge against an isolated local server (default `http://127.0.0.1:8872`, overridden with `MORPHAIC_TEST_URL`). Its server must use a temporary settings path and export directory because it tests persistent preferences and saves an export. The dense-mesh regression generates 508,362 vertices and 1,016,720 triangles at 0.01 mm spacing and checks the resulting binary STL.
 
 Controller mode in settings hides the menus and canvas controls while retaining the artwork and current edits. F8 toggles this mode; Escape restores the menus. This is a canvas-only display mode, not a new controller driver or mapping system.
 
@@ -91,7 +91,7 @@ The **animate** dropdown switches between collage and migration map. Each migrat
 5. **Output.** Size (in / cm / mm), dpi, and `png` (lossless), `tif` (lossless, Deflate) or `pdf` (page of the exact physical size holding the full-resolution image, lossless). Output is capped at 400 MP.
 
    - **`map`** exports the *migration map* as one full-quality vector PDF the size of the canvas, exactly the drawing the stage shows: the initial outlines, the migration lines and nodes (plus the guide grid and your drawing, faintly, when they steered) and the final outlines, stacked, each layer with its own tone, line opacity, paper colour and paper opacity (0 = no paper). The layers are real PDF layers, for viewers that support them (browsers don't).
-   - **also save portion linework** (when *portion of each file* is below 100%) adds a vector PDF, one page per source at its physical size, outlining the selected portions with their numbers and the cut grid inside. With it ticked the download is a zip of the main output and `collage-portions.pdf`.
+   - **also save portion linework** (when *portion of each file* is below 100%) adds a vector PDF to collage exports. Map exports and map animations always produce one file and ignore older portion-linework settings.
 
 The preview is rendered by the same engine as the export, at screen size. Sliders drag at half resolution and sharpen on release. Layout is in inches, so the export matches the preview at any dpi.
 
@@ -131,3 +131,9 @@ Export fills a copy of the template and saves a ZIP containing INDD, IDML, PDF a
 Version 1.0.1: mixed-shape toggle and shape selector share a row; controller mode uses a compact button with shortcut tooltip. Migration nodes include plus signs. GIF/MP4 exports use one eased transition for duplication, rotation and movement, with frame density based on duration and a shared GIF palette.
 
 Version 1.1.0: GIF export has a max-size dropdown (1 to 50 MB; 50 MB is the cap) and shrinks the frames until the file fits. GIF and MP4 can animate the migration map instead of the collage, and animations default to 6 seconds. The map export is one full-quality vector PDF, the drawing shown in the preview. Map settings gain typeable opacity percentages and separate colours for start nodes, end nodes and connecting lines.
+
+Map exports save exactly the displayed drawing as one vector PDF, PNG or TIFF. Raster maps use the selected canvas dimensions and DPI. Each map layer has stroke width (points), tone and opacity controls. Migration lines can use destination cut-shape colors independently of the end-node glyph. Optional tone gradients run from the common line tone to the end tone (or destination cut-shape color); optional opacity gradients use independent start/end values. Start and end nodes each have their own opacity percentage. These styling choices can be saved as map defaults.
+
+Every color swatch has a hue/hex editor with saturation, lightness and the native color picker, including dynamically added gradient stops and cut-shape colors. Opacity controls show editable percentages and percentage tooltips.
+
+The Triptych export has its own PNG/PDF submenu. Both are one-file compositions. PDF places the original and collage panels at the selected DPI and preserves the migration map as vector artwork, including native smooth tone/opacity gradients.

@@ -7,6 +7,8 @@ st.lum = {source:'collage',source_id:'',source_name:'',source_aspect:1,width_mm:
 Object.assign(st.lum,{cleat:false,include_wall_cleat:true,hardware:'screws',cleat_height_mm:14,cleat_depth_mm:5,cleat_width:.8,cleat_gap_mm:.3,pin_diameter_mm:1,screw_sixteenths:3,hole_clearance_mm:.3,hollow_back:false,shell_mm:1});
 st.map.node_by_shape = false;
 st.map.node_end_shapes = {rectangle:'square',ellipse:'ring',triangle:'arrow',diamond:'cut',hexagon:'cut',star:'cut',heart:'cut',custom:'cut'};
+Object.assign(st.map,{line_by_shape:false,line_tone_gradient:false,line_opacity_gradient:false,
+  line_shape_colors:Object.fromEntries(SHAPE_NAMES.map((name,i)=>[name,SHAPE_COLORS[i]]))});
 let lastCutCounts = {}, lumTimer, lumVersion = 0, lumRequest = false, lumQueued = false;
 const lumControls = {};
 const mmText=value=>+Number(value).toFixed(3);
@@ -75,6 +77,11 @@ function studioSync() {
   syncShares();
   $('#stencilSave').disabled=!st.cut.custom_shape.length&&!knifeSealed;if(!$('#knifeDialog').open)$('#stencilName').value=st.cut.stencil_name||'';stencilOptions();
   $('#nodeByShape').checked=st.map.node_by_shape; $('#shapeNodes').hidden=!st.map.node_by_shape;
+  $('#lineByShape').checked=st.map.line_by_shape;$('#shapeLineColors').hidden=!st.map.line_by_shape;
+  $('#lineToneGradient').checked=st.map.line_tone_gradient;$('#lineGradientToneRow').hidden=!st.map.line_tone_gradient;
+  $('#lineOpacityGradient').checked=st.map.line_opacity_gradient;$('#lineGradientOpacityRow').hidden=!st.map.line_opacity_gradient;
+  $('#m2_gradient_end').disabled=st.map.line_by_shape;$('#shapeGradientNote').hidden=!st.map.line_by_shape;
+  document.querySelectorAll('[data-line-shape]').forEach(el=>el.value=st.map.line_shape_colors[el.dataset.lineShape]);
   document.querySelectorAll('[data-shape-node]').forEach(el=>el.value=st.map.node_end_shapes[el.dataset.shapeNode]||st.map.node_end);
   st.lum.source='collage';
   $('#stlEncoding').value=st.lum.encoding; $('#lumInvert').checked=st.lum.invert;
@@ -171,10 +178,17 @@ for(const [i,name] of SHAPE_NAMES.entries()) {
   const node=document.createElement('div');node.className='row';
   node.innerHTML=`<label class="grow" for="node-${name}">${name}</label><select id="node-${name}" data-shape-node="${name}" aria-label="${name} end node"><option value="none">none</option><option value="dot">dot</option><option value="ring">ring</option><option value="square">square</option><option value="plus">plus (+)</option><option value="arrow">arrow</option><option value="cut">cut shape</option></select>`;
   node.querySelector('select').onchange=e=>{st.map.node_end_shapes[name]=e.target.value;draw(false);};$('#shapeNodes').append(node);
+  const line=document.createElement('div');line.className='row';
+  line.innerHTML=`<label class="grow" for="line-${name}">${name}</label><input id="line-${name}" type="color" data-line-shape="${name}" aria-label="${name} destination line color">`;
+  line.querySelector('input').oninput=e=>{st.map.line_shape_colors[name]=e.target.value;draw(true);};
+  line.querySelector('input').onchange=()=>draw(false);$('#shapeLineColors').append(line);
 }
 $('#cutShape').onchange=e=>{st.cut.cut_shape=e.target.value;draw(false);};
 $('#multiShape').onclick=()=>editAction(()=>{st.cut.multi_shape=!st.cut.multi_shape;studioSync();draw(false);});
 $('#nodeByShape').onchange=e=>{st.map.node_by_shape=e.target.checked;studioSync();draw(false);};
+for(const [id,key] of [['lineByShape','line_by_shape'],['lineToneGradient','line_tone_gradient'],['lineOpacityGradient','line_opacity_gradient']]){
+  $('#'+id).onchange=e=>{st.map[key]=e.target.checked;studioSync();draw(false);};
+}
 function studioCounts(counts) {
   lastCutCounts=counts;let total=Object.values(counts).reduce((a,b)=>a+b,0);
   const actual=total>0, values=actual?counts:st.cut.shape_weights;
@@ -395,7 +409,8 @@ studioSync();
 // Initial values are captured after linked sizing has settled; global reset can
 // restore these without removing sources or touching the saved-stencil library.
 window.studioDefaults=copy({cut:st.cut,lum:st.lum,exportMode:st.exportMode,lumFmt:st.lumFmt,
-  map:{node_by_shape:st.map.node_by_shape,node_end_shapes:st.map.node_end_shapes}});
+  map:{node_by_shape:st.map.node_by_shape,node_end_shapes:st.map.node_end_shapes,line_by_shape:st.map.line_by_shape,
+    line_shape_colors:st.map.line_shape_colors,line_tone_gradient:st.map.line_tone_gradient,line_opacity_gradient:st.map.line_opacity_gradient}});
 window.studioReset=function(){
   if(knifeDialog.open)knifeDialog.close();if($('#reliefDialog').open)$('#reliefDialog').close();
   const defaults=copy(window.studioDefaults);
@@ -409,3 +424,4 @@ window.studioReset=function(){
   $('#knifeUse').disabled=true;$('#stencilName').value='';knifeHistory=StudioMath.history(knifeSnapshot());knifeHistoryButtons();
   studioSync();
 };
+

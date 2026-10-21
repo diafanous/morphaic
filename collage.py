@@ -44,11 +44,14 @@ SPEC = dict(
     w=(0.001, 200, 8.5), h=(0.001, 200, 11), dpi=(10, 1200, 300), pv=(200, 3000, 1000),  # canvas in, dpi, preview px
     m1o=(0, 1, 0.8), m2o=(0, 1, 0.8), m3o=(0, 1, 1),          # migration map: line opacity per layer
     m1a=(0, 1, 1), m2a=(0, 1, 0), m3a=(0, 1, 0),              # migration map: paper opacity per layer (0 = no paper)
+    m1w=(.05, 12, .6), m2w=(.05, 12, .6), m3w=(.05, 12, .6), # map stroke widths in PDF points
+    m2so=(0, 1, .8), m2eo=(0, 1, .8), m2_gradient_opacity=(0, 1, 0),
     smoothness=(4, 24, 12), pace=(3, 30, 6),   # animation: frame rate, seconds
     node_end_size=(0.25, 6, 1),
 )
 COLORS = dict(bg="#f4f2ee", m1c="#8a8a90", m2c="#ff5a36", m3c="#18181b",   # canvas, map tone per layer
-              m1p="#f4f2ee", m2p="#f4f2ee", m3p="#f4f2ee")                 # map paper per layer
+              m1p="#f4f2ee", m2p="#f4f2ee", m3p="#f4f2ee", m2_gradient_end="#18181b")
+LINE_SHAPE_COLORS = dict(zip(shapes.NAMES, ('#9fbdd4','#a9c4b3','#d9a4a7','#b4bddd','#bfd4ca','#bca18b','#cc9386','#d7c8ae')))
 
 
 def clean(raw):
@@ -70,6 +73,17 @@ def clean(raw):
     for key, default, choices in [('anim_resolution','full',('full','2160','1440','1080','720')), ('anim_renderer','cpu',('cpu','gpu'))]:
         value = str(raw.get(key, default))
         p[key] = value if value in choices else default
+    p['map_file']=raw.get('map_file') if raw.get('map_file') in ('pdf','png','tif') else 'pdf'
+    p['triptych_file']='pdf' if raw.get('triptych_file')=='pdf' else 'png'
+    p['line_by_shape']=bool(raw.get('line_by_shape',False))
+    p['line_tone_gradient']=bool(raw.get('line_tone_gradient',False))
+    p['line_opacity_gradient']=bool(raw.get('line_opacity_gradient',False))
+    for key in ('m2so','m2eo'):
+        if key not in raw:p[key]=p['m2o']  # older maps used one opacity for lines and nodes
+    colors=raw.get('line_shape_colors',{})
+    if not isinstance(colors,dict):colors={}
+    p['line_shape_colors']={key:colors[key] if isinstance(colors.get(key),str) and re.fullmatch(r'#[0-9a-fA-F]{6}',colors[key]) else default
+                            for key,default in LINE_SHAPE_COLORS.items()}
     p.update(shapes.clean(raw))
     return p
 
@@ -420,11 +434,12 @@ def _map_doc(raw, specs, store, layers, pieces=None, doc_only=False):
     oc = {n: doc.add_ocg(LAYERS[n]) if len(layers) > 1 else 0 for n in layers}
     pt = lambda q: (q[0] * 72, q[1] * 72)
 
-    def ink(n, draw, closed=True, fill=0, soft=1, key=None):   # fill: fill opacity as a share of the layer's; soft: scales the line opacity; key: colour setting (default: the layer's)
-        col, op = _rgb(p[key or f"m{n}c"]), p[f"m{n}o"]
+    def ink(n, draw, closed=True, fill=0, soft=1, key=None, color=None, opacity=None):
+        tone=color if color is not None else p[key or f"m{n}c"]
+        col, op = _rgb(tone) if isinstance(tone,str) else tone, p[f"m{n}o"] if opacity is None else opacity
         sh = page.new_shape()
         draw(sh)
-        sh.finish(color=col, fill=col if fill else None, width=0.6, closePath=closed, stroke_opacity=op * soft, fill_opacity=op * fill, oc=oc[n])
+        sh.finish(color=col, fill=col if fill else None, width=p[f'm{n}w'], closePath=closed, stroke_opacity=op * soft, fill_opacity=op * fill, oc=oc[n])
         sh.commit()
 
     def initial(sh):
@@ -438,12 +453,27 @@ def _map_doc(raw, specs, store, layers, pieces=None, doc_only=False):
         for pc in pieces:
             sh.draw_polyline([pt(q) for q in shapes.outline(p, pc)])
 
-    def lines(sh):
+    def lines(sh, cut_shape=None):
         for pc in pieces:
+            if cut_shape is not None and shapes.shape_for(p,pc)!=cut_shape:
+                continue
             # home_x/home_y are the center of the section's initial cut outline.
             end = migration_line_end(p, pc)
             if end is not None:
                 sh.draw_line(pt(pc[7:9]), pt(end))
+
+    def gradient_lines():
+        from map_gradients import LineGradients
+        writer=LineGradients(page,oc[2])
+        for pc in pieces:
+            end=migration_line_end(p,pc)
+            if end is None:continue
+            target=p['line_shape_colors'][shapes.shape_for(p,pc)] if p['line_by_shape'] else p['m2c']
+            if p['line_tone_gradient'] and not p['line_by_shape']:target=p['m2_gradient_end']
+            end_color=_rgb(target)
+            start_color=_rgb(p['m2c']) if p['line_tone_gradient'] else end_color
+            start_op=p['m2o'];end_op=p['m2_gradient_opacity'] if p['line_opacity_gradient'] else start_op
+            writer.draw(pt(pc[7:9]),pt(end),start_color,end_color,start_op,end_op,p['m2w'])
 
     def markers(sh, key, at_start=False, only_style=None):
         for pc in pieces:
@@ -497,11 +527,16 @@ def _map_doc(raw, specs, store, layers, pieces=None, doc_only=False):
                 ink(2, grid, closed=False, soft=0.35)
             if p["draw"] > 0 and len(p["pts"]) > 1:
                 ink(2, strokes, closed=False, soft=0.6)
-            ink(2, lines, closed=False)
-            ink(2, lambda sh: markers(sh, 'node_start', True), fill=0 if p['node_start'] == 'ring' else 1, key='m2s')
+            if p['line_tone_gradient'] or p['line_opacity_gradient']:
+                gradient_lines()
+            elif p['line_by_shape']:
+                for cut_shape in shapes.NAMES:
+                    ink(2,lambda sh,cut_shape=cut_shape:lines(sh,cut_shape),closed=False,color=p['line_shape_colors'][cut_shape])
+            else:ink(2, lines, closed=False)
+            ink(2, lambda sh: markers(sh, 'node_start', True), fill=0 if p['node_start'] == 'ring' else 1, key='m2s',opacity=p['m2so'])
             for style in shapes.NODE_STYLES:
                 if style != 'none':
-                    ink(2, lambda sh, style=style: markers(sh, 'node_end', only_style=style), fill=0 if style == 'ring' else 1, key='m2e')
+                    ink(2, lambda sh, style=style: markers(sh, 'node_end', only_style=style), fill=0 if style == 'ring' else 1, key='m2e',opacity=p['m2eo'])
         else:
             ink(3, final, fill=0.15)
     return doc if doc_only else doc.tobytes(deflate=True)
@@ -824,8 +859,7 @@ def animation_estimate(raw,specs,store,fmt):
         approximate=True,renderer=renderer,encoder=codec if fmt=='mp4' else 'GIF (CPU)',reason=reason)
 
 
-def triptych(raw, specs, store):
-    """Original sources, final collage and styled migration map as three equal panels."""
+def _triptych_panels(raw, specs, store):
     p = clean(raw)
     dpi = p['dpi']
     width, height = max(1, round(p['w']*dpi)), max(1, round(p['h']*dpi))
@@ -838,6 +872,12 @@ def triptych(raw, specs, store):
         src, pg, _ = _spec(s, store)
         originals.append(raster(src,pg,dpi=min(dpi,600)))
     original = _gif_original(p, originals, dpi)
+    return p,dpi,width,height,gap,original,composed
+
+
+def triptych(raw, specs, store):
+    """Original sources, final collage and styled migration map as three equal panels."""
+    p,dpi,width,height,gap,original,composed=_triptych_panels(raw,specs,store)
     with pymupdf.open(stream=migration_pdf(raw,specs,store), filetype='pdf') as doc:
         pix = doc[0].get_pixmap(matrix=pymupdf.Matrix(dpi/72,dpi/72),alpha=False)
         migration = Image.frombytes('RGB',(pix.width,pix.height),pix.samples)
@@ -849,6 +889,24 @@ def triptych(raw, specs, store):
     buf = io.BytesIO()
     result.save(buf,'PNG',dpi=(round(dpi),round(dpi)),compress_level=3)
     return buf.getvalue()
+
+
+def triptych_pdf(raw,specs,store):
+    """One PDF page: two DPI-sized image panels and the original vector map."""
+    p,dpi,width,height,gap,original,composed=_triptych_panels(raw,specs,store)
+    scale=72/dpi
+    with pymupdf.open() as doc:
+        page=doc.new_page(width=(3*width+2*gap)*scale,height=height*scale)
+        page.draw_rect(page.rect,color=None,fill=_rgb(p['bg']))
+        for i,image in enumerate((original,composed)):
+            left=i*(width+gap)*scale
+            rect=pymupdf.Rect(left,0,left+width*scale,height*scale)
+            page.insert_image(rect,pixmap=pymupdf.Pixmap(pymupdf.csRGB,image.width,image.height,image.tobytes(),False))
+        left=2*(width+gap)*scale;rect=pymupdf.Rect(left,0,left+width*scale,height*scale)
+        page.draw_rect(rect,color=None,fill=(1,1,1))
+        with pymupdf.open(stream=migration_pdf(raw,specs,store),filetype='pdf') as migration:
+            page.show_pdf_page(rect,migration,0,keep_proportion=False)
+        return doc.tobytes(deflate=True)
 
 
 def settings_text(raw, specs, store, lines=False):
@@ -870,21 +928,36 @@ def settings_text(raw, specs, store, lines=False):
 
 def export(raw, specs, store, fmt, lines=False):
     """-> (file bytes, file name). fmt: png / tif / pdf / gif, or map for the migration map (one vector PDF, the drawing the stage shows).
-    With lines=True the portion linework is added, which also makes the result a zip."""
+    Map exports are always one file. Other exports may bundle portion linework when lines=True."""
     if fmt not in ("png", "tif", "pdf", "gif", "mp4", "map", "triptych", "txt"):
         raise ValueError(f"unknown format {fmt!r}")
     stem = "collage-map-process" if clean(raw)["anim"] == "map" else "collage-process"   # what a GIF / MP4 shows
     if fmt=='txt':
         return settings_text(raw,specs,store,lines), 'collage-settings.txt'
+    if fmt=='map':
+        # Map exports are exactly one drawing; old portion-linework settings never bundle extras.
+        p=clean(raw)
+        data=migration_pdf(raw,specs,store)
+        if p['map_file']=='pdf':return data,'collage-map.pdf'
+        dpi=round(p['dpi']);size=max(1,round(p['w']*dpi)),max(1,round(p['h']*dpi))
+        if size[0]*size[1]>MAX_PIXELS:raise ValueError('Map raster exceeds the 400 MP limit; lower the DPI or canvas size')
+        with pymupdf.open(stream=data,filetype='pdf') as doc:
+            pix=doc[0].get_pixmap(dpi=dpi,alpha=False)
+            image=Image.frombytes('RGB',(pix.width,pix.height),pix.samples)
+        if image.size!=size:image=image.resize(size,Image.LANCZOS)
+        buf=io.BytesIO()
+        if p['map_file']=='png':image.save(buf,'PNG',dpi=(dpi,dpi),compress_level=3)
+        else:image.save(buf,'TIFF',dpi=(dpi,dpi),compression='tiff_adobe_deflate')
+        return buf.getvalue(),'collage-map.'+p['map_file']
+    if fmt in ('gif','mp4') and clean(raw)['anim']=='map':lines=False
+    if fmt=='triptych':
+        if clean(raw)['triptych_file']=='pdf':return triptych_pdf(raw,specs,store),'collage-triptych.pdf'
+        return triptych(raw,specs,store),'collage-triptych.png'
     extra = portions_pdf(raw, specs, store) if lines else None   # cheap, so a bad request fails before the big render
-    if fmt == "map":
-        files = {"collage-map.pdf": migration_pdf(raw, specs, store)}   # the drawing the stage shows, as vector
-    elif fmt == "gif":
+    if fmt == "gif":
         files = {f"{stem}.gif": process_gif(raw, specs, store)}
     elif fmt == 'mp4':
         files = {f'{stem}.mp4': process_mp4(raw, specs, store)}
-    elif fmt == 'triptych':
-        files = {'collage-triptych.png': triptych(raw,specs,store)}
     else:
         p, im = compose(raw, specs, store, final=True)
         dpi, buf = round(p["dpi"]), io.BytesIO()
@@ -907,4 +980,4 @@ def export(raw, specs, store, fmt, lines=False):
     with zipfile.ZipFile(zbuf, "w") as z:   # stored, not deflated: PNG/TIFF/PDF are already compressed
         for name, data in files.items():
             z.writestr(name, data)
-    return zbuf.getvalue(), "collage-map.zip" if fmt == "map" else "collage.zip"
+    return zbuf.getvalue(), "collage.zip"
