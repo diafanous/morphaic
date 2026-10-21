@@ -26,6 +26,7 @@ def resource_root():
 
 ROOT = resource_root()
 STORE = {}   # id -> collage.Source, for this session only
+ANIMATION_ESTIMATE_LOCK = threading.Lock()
 
 
 def downloads_folder():
@@ -162,7 +163,7 @@ if getattr(sys, "frozen", False):
     # is stable across launches and changes when the bundled app is replaced.
     STAMP = str(Path(sys.executable).stat().st_mtime_ns)
 else:
-    STAMP = str(max((ROOT / f).stat().st_mtime_ns for f in ("collage.py", "effects.py", "server.py", "luminosity.py", "mounting.py", "shapes.py", "index.html", "studio.js", "controls.js", "iteration.js", "ui.css", "iteration.css", "glass.css", "canvas.js", "templates.js", "indesign.py")))
+    STAMP = str(max((ROOT / f).stat().st_mtime_ns for f in ("collage.py", "animation_gpu.py", "effects.py", "server.py", "luminosity.py", "mounting.py", "shapes.py", "index.html", "studio.js", "controls.js", "iteration.js", "ui.css", "iteration.css", "glass.css", "canvas.js", "templates.js", "indesign.py")))
 EXT = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".bmp", ".gif", ".pdf", ".heic", ".heif"}
 
 
@@ -234,6 +235,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, {'folder': str(EXPORT_FOLDER), 'map_defaults': map_defaults()})
             elif self.path == '/preferences':
                 self.reply(200, {'skip_reset_warning': bool(read_settings().get('skip_reset_warning', False))})
+            elif self.path == '/animation-capabilities':
+                import animation_gpu
+                self.reply(200, animation_gpu.capabilities())
             elif self.path == '/indesign/status':
                 self.reply(200, {'available': indesign.available()})
             elif self.path == '/stencils':
@@ -311,6 +315,13 @@ class Handler(BaseHTTPRequestHandler):
                 data, name = luminosity.export(req['p'], req['sources'], STORE, req['luminosity'], self.path[19:])
                 saved = save_export(data, name)
                 self.reply(200, {'path': str(saved), 'name': saved.name})
+            elif self.path == '/animation-estimate':
+                req = json.loads(self.body())
+                if not ANIMATION_ESTIMATE_LOCK.acquire(blocking=False):
+                    self.reply(429, {'error':'Another estimate is running; try again in a moment'})
+                    return
+                try:self.reply(200, collage.animation_estimate(req['p'],req['sources'],STORE,req.get('format','gif')))
+                finally:ANIMATION_ESTIMATE_LOCK.release()
             elif self.path.startswith('/animation/'):
                 fmt, req = self.path[11:], json.loads(self.body())
                 if fmt not in ('gif', 'mp4'):

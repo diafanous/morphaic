@@ -10,6 +10,8 @@ import random
 import re
 import zipfile
 import tempfile
+import time
+from contextlib import closing
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
@@ -42,7 +44,7 @@ SPEC = dict(
     w=(0.001, 200, 8.5), h=(0.001, 200, 11), dpi=(10, 1200, 300), pv=(200, 3000, 1000),  # canvas in, dpi, preview px
     m1o=(0, 1, 0.8), m2o=(0, 1, 0.8), m3o=(0, 1, 1),          # migration map: line opacity per layer
     m1a=(0, 1, 1), m2a=(0, 1, 0), m3a=(0, 1, 0),              # migration map: paper opacity per layer (0 = no paper)
-    smoothness=(4, 24, 12), pace=(3, 30, 6), gifmb=(1, 50, 50),   # animation: frame rate, seconds; GIF size cap in MB
+    smoothness=(4, 24, 12), pace=(3, 30, 6),   # animation: frame rate, seconds
     node_end_size=(0.25, 6, 1),
 )
 COLORS = dict(bg="#f4f2ee", m1c="#8a8a90", m2c="#ff5a36", m3c="#18181b",   # canvas, map tone per layer
@@ -64,6 +66,9 @@ def clean(raw):
     p["curve"] = [min(max(round(float(v)), 0), 255) for v in c] if isinstance(c, list) and len(c) == 256 else IDENT
     for key, default, choices in [('node_start', 'dot', ('none', 'dot', 'ring', 'square', 'plus')), ('node_end', 'arrow', ('none', 'arrow', 'dot', 'ring', 'square', 'plus')), ('anim', 'collage', ('collage', 'map'))]:
         value = raw.get(key, default)
+        p[key] = value if value in choices else default
+    for key, default, choices in [('anim_resolution','full',('full','2160','1440','1080','720')), ('anim_renderer','cpu',('cpu','gpu'))]:
+        value = str(raw.get(key, default))
         p[key] = value if value in choices else default
     p.update(shapes.clean(raw))
     return p
@@ -229,7 +234,7 @@ def _batches(pieces, ppi, budget=60e6):
         yield batch
 
 
-def render(p, items, ppi, resample, pieces=None, grain_texture=None):
+def render(p, items, ppi, resample, pieces=None, grain_texture=None, compositor=None):
     """items: [(PIL image, width_in, height_in)] -> RGB canvas of p.w x p.h inches at ppi."""
     W, H = p["w"], p["h"]
     cw, ch = max(1, round(W * ppi)), max(1, round(H * ppi))
@@ -281,10 +286,14 @@ def render(p, items, ppi, resample, pieces=None, grain_texture=None):
             mask = a.point(lambda v: v * opacity)
         return tile, mask, (round(mx - tile.width / 2), round(my - tile.height / 2))
 
+    if compositor is not None:
+        compositor.clear(p['bg'])
     for batch in _batches(pieces if pieces is not None else layout(p, [(w, h) for _, w, h in items], W, H), ppi):
         for res in POOL.map(prep, batch):
             if res:
-                canvas.paste(res[0], res[2], res[1])
+                if compositor is not None:compositor.paste(res[0],res[1],res[2])
+                else:canvas.paste(res[0], res[2], res[1])
+    if compositor is not None:canvas=compositor.image()
     return effects.grain(canvas, p, ppi, grain_texture)
 
 
@@ -564,11 +573,12 @@ def preview(raw, specs, store, as_map=False, show_grid=False):
 
 
 def _gif_items(p, specs, store):
-    """Low-resolution source copies for the process animation."""
+    """Load originals at the selected animation resolution, including PDF sources."""
     lut, items, originals = tone_lut(p), [], []
     for s in specs:
         src, pg, w = _spec(s, store)
-        im = thumb(src, pg).copy()
+        ppi = animation_ppi(p)
+        im = raster(src, pg, dpi=min(max(ppi*p['scale']*(1+p['var']),72),1200))
         originals.append(im)
         items.append((effects.grade(adjust(im, lut), p), w, w * im.height / im.width))
     return items, originals
@@ -606,6 +616,20 @@ def animation_timing(p):
     return frames, frames/p['pace']
 
 
+def animation_ppi(p):
+    edge = max(p['w'],p['h'])*p['dpi']
+    if p['anim_resolution'] != 'full':edge=min(edge,int(p['anim_resolution']))
+    return edge/max(p['w'],p['h'])
+
+
+def animation_size(p):
+    ppi=animation_ppi(p)
+    size=max(1,round(p['w']*ppi)),max(1,round(p['h']*ppi))
+    if size[0]*size[1]>MAX_PIXELS:
+        raise ValueError(f'{size[0]} x {size[1]} px is over the {MAX_PIXELS//10**6} MP limit; choose a smaller resolution')
+    return size
+
+
 def animation_pose(pieces, layer_ids, progress):
     t = max(0, min(1, progress)); t = t*t*(3-2*t)
     return [pc[:2] + tuple(pc[k+5]+(pc[k]-pc[k+5])*t for k in range(2,6))
@@ -619,16 +643,18 @@ def _layer_ids(p, sizes):
 
 
 def _map_frame_fn(p, raw, specs, store):
-    """progress 0..1 -> the migration map with every section part-way along its journey, as an RGB image (720 px long edge)."""
+    """progress 0..1 -> the migration map at the selected animation resolution."""
     sizes = _sizes(specs, store)
     pieces, layer_ids = layout(p, sizes, p['w'], p['h']), _layer_ids(p, sizes)
 
     def frame(progress):
         pose = [pc[:-1] for pc in animation_pose(pieces, layer_ids, progress)]   # drop the fade value the collage animation adds
         doc = _map_doc(raw, specs, store, (1, 2, 3), pieces=pose, doc_only=True)
-        z = 720 / max(doc[0].rect.width, doc[0].rect.height)
+        size = animation_size(p)
+        z = max(size) / max(doc[0].rect.width, doc[0].rect.height)
         pix = doc[0].get_pixmap(matrix=pymupdf.Matrix(z, z), alpha=False)
-        return Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
+        image=Image.frombytes('RGB', (pix.width, pix.height), pix.samples)
+        return image if image.size==size else image.resize(size,Image.LANCZOS)
     return frame
 
 
@@ -645,15 +671,19 @@ def map_animation_frames(p, raw, specs, store):
         yield last.copy()
 
 
-def animation_frames(raw, specs, store):
+def animation_frames(raw, specs, store, sample=False, report=None):
     """Copies separate, rotate and migrate together along one eased timeline."""
     p = clean(raw)
+    report = {} if report is None else report
+    report.update(renderer='cpu',reason='')
     if not specs:
         raise ValueError('add an image or PDF first')
     if p['anim'] == 'map':   # animate the migration drawing instead of the pictures
-        yield from map_animation_frames(p, raw, specs, store)
+        if sample:yield _map_frame_fn(p,raw,specs,store)(.5)
+        else:yield from map_animation_frames(p, raw, specs, store)
         return
-    ppi = 720/max(p['w'], p['h'])
+    size=animation_size(p)
+    ppi = animation_ppi(p)
     grain_texture = _grain_texture(p, store)
     items, originals = _gif_items(p, specs, store)
     sizes = [(w,h) for _,w,h in items]
@@ -661,63 +691,90 @@ def animation_frames(raw, specs, store):
     layer_ids = _layer_ids(p, sizes)
     total,fps = animation_timing(p)
     lead,tail = max(1,round(.25*fps)),max(1,round(.75*fps))
-    original = _gif_original(p, originals, ppi)
-    for _ in range(lead):
-        yield original.copy()
-    moving = total-lead-tail
-    for i in range(moving):
-        progress = i/max(1,moving-1)
-        frame = render(p,items,ppi,Image.BILINEAR,animation_pose(pieces,layer_ids,progress),grain_texture)
-        fade = min(1,progress/.12);fade = fade*fade*(3-2*fade)
-        yield Image.blend(original,frame,fade) if fade<1 else frame
-    final = render(p,items,ppi,Image.BILINEAR,pieces,grain_texture)
-    for _ in range(tail):
-        yield final.copy()
+    compositor=None
+    if p['anim_renderer']=='gpu':
+        import animation_gpu
+        compositor=animation_gpu.create(size)
+        report.update(renderer='gpu' if compositor is not None else 'cpu',
+                      reason='' if compositor is not None else 'GPU resources unavailable for this resolution')
 
-
-GIF_MIN_EDGE = 120   # smallest long edge, in px, the size-fitting loop will shrink a GIF to
-
-
-def _gif_bytes(frames, duration):
-    buf = io.BytesIO()
-    frames[0].save(buf, "GIF", save_all=True, append_images=frames[1:], duration=duration,
-                   loop=0, disposal=2, optimize=False)
-    return buf.getvalue()
+    def draw_frame(pose):
+        nonlocal compositor
+        try:return render(p,items,ppi,Image.BILINEAR,pose,grain_texture,compositor)
+        except Exception as error:
+            if compositor is None:raise
+            import logging
+            logging.getLogger(__name__).warning('GPU failed during rendering; continuing on CPU: %s',error)
+            try:compositor.close()
+            except Exception:pass
+            compositor=None
+            report.update(renderer='cpu',reason='GPU failed during rendering; using CPU')
+            return render(p,items,ppi,Image.BILINEAR,pose,grain_texture)
+    try:
+        if sample:
+            yield draw_frame(animation_pose(pieces,layer_ids,.5))
+            return
+        original = _gif_original(p, originals, ppi)
+        for _ in range(lead):yield original.copy()
+        moving = total-lead-tail
+        for i in range(moving):
+            progress = i/max(1,moving-1)
+            frame = draw_frame(animation_pose(pieces,layer_ids,progress))
+            fade = min(1,progress/.12);fade = fade*fade*(3-2*fade)
+            yield Image.blend(original,frame,fade) if fade<1 else frame
+        final = draw_frame(pieces)
+        for _ in range(tail):yield final.copy()
+    finally:
+        if compositor is not None:compositor.close()
 
 
 def process_gif(raw, specs, store):
+    from PIL import GifImagePlugin
     p = clean(raw)
+    if max(animation_size(p))>65535:raise ValueError('GIF dimensions must fit within 65535 pixels; choose a smaller resolution')
     count, fps = animation_timing(p)
     # Shared palette avoids color flicker between independently quantized frames.
     if p['anim'] == 'map':
-        frame = _map_frame_fn(p, raw, specs, store)
+        frame = _map_frame_fn(dict(p,anim_resolution='720'), raw, specs, store)
         samples = [frame(t) for t in (0, .5, 1)]
     else:
-        items, originals = _gif_items(p, specs, store)
+        items, originals = _gif_items(dict(p,anim_resolution='720'), specs, store)
         preview = render(p,items,720/max(p['w'],p['h']),Image.BILINEAR,grain_texture=_grain_texture(p,store))
         samples = originals+[preview]
     atlas = Image.new('RGB',(128*len(samples),128))
     for i,sample in enumerate(samples):
         atlas.paste(sample.convert('RGB').resize((128,128)),(128*i,0))
     palette = atlas.quantize(colors=256)
-    frames = [im.quantize(palette=palette,dither=Image.Dither.NONE) for im in animation_frames(raw,specs,store)]
-    duration = [max(10,(round((i+1)*100/fps)-round(i*100/fps))*10) for i in range(count)]
-    limit, data, scale = p['gifmb'] * 1_000_000, _gif_bytes(frames, duration), 1.0   # decimal MB, so also under the same number of MiB
-    while len(data) > limit:
-        # file size follows pixel area: shrink by the square root of the overshoot, plus 8% margin
-        scale *= max(.3, (limit / len(data)) ** .5 * .92)
-        size = (max(1, round(frames[0].width * scale)), max(1, round(frames[0].height * scale)))
-        if max(size) < GIF_MIN_EDGE:
-            raise ValueError(f"can't fit the GIF in {p['gifmb']:g} MB: choose a bigger size, a shorter pace or lower smoothness")
-        data = _gif_bytes([f.convert('RGB').resize(size, Image.LANCZOS).quantize(palette=palette, dither=Image.Dither.NONE)
-                           for f in frames], duration)
-    return data
+    # Stream indexed frames: full resolution must not require an entire movie in RAM.
+    buf=io.BytesIO()
+    with closing(animation_frames(raw,specs,store)) as frames:
+        for i,im in enumerate(frames):
+            indexed=im.quantize(palette=palette,dither=Image.Dither.NONE)
+            if i==0:
+                header,_=GifImagePlugin.getheader(indexed,info={'loop':0})
+                for block in header:buf.write(block)
+            duration=max(10,(round((i+1)*100/fps)-round(i*100/fps))*10)
+            for block in GifImagePlugin.getdata(indexed,duration=duration,disposal=2):buf.write(block)
+    buf.write(b';')
+    return buf.getvalue()
 
 
 def process_mp4(raw, specs, store):
     import imageio_ffmpeg
     p = clean(raw)
     _, fps = animation_timing(p)
+    codec='libx264'
+    if p['anim_renderer']=='gpu':
+        import animation_gpu
+        codec=animation_gpu.video_encoder()
+    try:return _process_mp4(raw,specs,store,codec,fps)
+    except (OSError,RuntimeError):
+        if codec=='libx264':raise
+        return _process_mp4(raw,specs,store,'libx264',fps)
+
+
+def _process_mp4(raw,specs,store,codec,fps):
+    import imageio_ffmpeg
     with tempfile.TemporaryDirectory(prefix='collage-video-') as folder:
         path = Path(folder) / 'collage-process.mp4'
         writer = None
@@ -725,9 +782,9 @@ def process_mp4(raw, specs, store):
             for im in animation_frames(raw, specs, store):
                 size = (max(2, im.width + im.width % 2), max(2, im.height + im.height % 2))
                 if im.size != size:
-                    im = im.resize(size, Image.BILINEAR)
+                    im = ImageOps.expand(im,(0,0,size[0]-im.width,size[1]-im.height),fill=clean(raw)['bg'])
                 if writer is None:
-                    writer = imageio_ffmpeg.write_frames(str(path), size, fps=fps, codec='libx264',
+                    writer = imageio_ffmpeg.write_frames(str(path), size, fps=fps, codec=codec,
                         pix_fmt_in='rgb24', pix_fmt_out='yuv420p', macro_block_size=1,
                         output_params=['-movflags', '+faststart'], ffmpeg_log_level='error')
                     writer.send(None)
@@ -735,7 +792,36 @@ def process_mp4(raw, specs, store):
         finally:
             if writer is not None:
                 writer.close()
-        return path.read_bytes()
+        data=path.read_bytes()
+        if len(data)<100:raise RuntimeError('Video encoder produced no output')
+        return data
+
+
+def animation_estimate(raw,specs,store,fmt):
+    if fmt not in ('gif','mp4'):raise ValueError('Choose GIF or MP4')
+    p=clean(raw);size=animation_size(p);frames,fps=animation_timing(p)
+    import animation_gpu
+    status=animation_gpu.capabilities() if p['anim_renderer']=='gpu' else None
+    renderer='gpu' if status and status['available'] and p['anim']=='collage' else 'cpu'
+    reason='' if not status or status['available'] else status['reason']
+    if renderer=='gpu':
+        probe=animation_gpu.create(size)
+        if probe is None:renderer='cpu';reason='Selected resolution exceeds available GPU resources'
+        else:probe.close()
+    selected=dict(raw,anim_renderer=renderer)
+    start=time.perf_counter()
+    report={}
+    with closing(animation_frames(selected,specs,store,sample=True,report=report)) as sample:
+        image=next(sample)
+    if renderer=='gpu' and report['renderer']=='cpu':renderer='cpu';reason=report['reason']
+    # Include the actual per-frame palette work in GIF estimates.
+    if fmt=='gif':image.quantize(colors=256)
+    elapsed=max(.001,time.perf_counter()-start)
+    codec=animation_gpu.video_encoder() if fmt=='mp4' and p['anim_renderer']=='gpu' else 'libx264'
+    seconds=elapsed*frames
+    return dict(width=size[0]+(size[0]%2 if fmt=='mp4' else 0),height=size[1]+(size[1]%2 if fmt=='mp4' else 0),
+        frames=frames,fps=fps,seconds_low=max(1,seconds*.6),seconds_high=max(2,seconds*1.8),
+        approximate=True,renderer=renderer,encoder=codec if fmt=='mp4' else 'GIF (CPU)',reason=reason)
 
 
 def triptych(raw, specs, store):
