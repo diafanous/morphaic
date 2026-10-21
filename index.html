@@ -289,6 +289,7 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     <div id="output2d">
     <div class="row"><span class="grow">size</span><input id="ow" type="number" step="any" aria-label="output width"><span>×</span><input id="oh" type="number" step="any" aria-label="output height"><span id="ou"></span></div>
     <div class="row"><label class="grow" for="fmt">file</label><select id="fmt" aria-label="export file format"><option value="" disabled hidden>choose format</option><option value="png" selected>png</option><option value="tif">tif</option><option value="pdf">pdf</option><option value="gif">gif</option><option value="mp4">mp4</option><option value="map">map</option><option value="triptych">triptych</option><option value="txt">txt</option></select></div>
+    <div id="triptychMenu" hidden><div class="row"><label class="grow" for="triptych_file">triptych file</label><select id="triptych_file" aria-label="triptych file format"><option value="png" selected>PNG</option><option value="pdf">PDF</option></select></div><p class="note">One original / collage / map composition. PDF retains the vector map; image panels use the selected DPI.</p></div>
     <div class="row"><span class="grow">luminosity map</span><div class="seg" id="lum2d"><button data-f="lum-png">png</button><button data-f="lum-tif">tif</button></div></div>
     <div id="animsec" hidden>
       <div class="row"><label class="grow" for="anim">animate</label><select id="anim" aria-label="what the animation shows"><option value="collage" selected>collage</option><option value="map">migration map</option></select></div>
@@ -302,20 +303,33 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     </div>
     <input id="lines" type="checkbox" hidden>
     <div id="mapsec" hidden>
+      <div class="row" id="mapFileRow"><label class="grow" for="map_file">map file</label><select id="map_file" aria-label="map file format"><option value="pdf" selected>vector PDF</option><option value="png">PNG</option><option value="tif">TIFF</option></select></div>
+      <p class="note" id="mapExportNote">One file showing the current map. PNG and TIFF use the selected DPI; PDF preserves vector detail.</p>
       <div class="row"><span class="grow">start node</span><select id="node_start" aria-label="migration start node"><option value="none">none</option><option value="dot" selected>dot</option><option value="ring">ring</option><option value="square">square</option><option value="plus">plus (+)</option></select></div>
       <div class="row"><span class="grow">end node</span><select id="node_end" aria-label="migration end node"><option value="none">none</option><option value="arrow" selected>arrow</option><option value="dot">dot</option><option value="ring">ring</option><option value="square">square</option><option value="plus">plus (+)</option></select></div>
       <div class="row"><label><input id="nodeByShape" type="checkbox">end nodes by cut shape</label></div><div id="shapeNodes" hidden></div>
       <div class="sl"><span>end node size</span><output id="node_end_sizev">1.00×</output><input id="node_end_size" type="range" min="0.25" max="6" step="0.05" value="1" aria-label="migration end node size"></div>
       <div class="row"><button id="saveMapDefaults">save map settings as default</button></div>
       <div class="row"><b>1 initial</b></div>
+      <div class="row"><label class="grow" for="m1w">stroke width (pt)</label><input id="m1w" type="number" min=".05" max="12" step=".05" value=".6" aria-label="initial stroke width"></div>
       <div class="row"><span class="grow">tone / opacity</span><input type="color" id="m1c" aria-label="initial tone"><input type="range" id="m1o" min="0" max="1" step=".01" aria-label="initial line opacity"><input class="pct" id="m1o_pct" type="number" min="0" max="100" step="1" aria-label="initial line opacity percent"><span>%</span></div>
       <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m1p" aria-label="initial paper colour"><input type="range" id="m1a" min="0" max="1" step=".01" aria-label="initial paper opacity"><input class="pct" id="m1a_pct" type="number" min="0" max="100" step="1" aria-label="initial paper opacity percent"><span>%</span></div>
       <div class="row"><b>2 migration</b></div>
+      <div class="row"><label class="grow" for="m2w">stroke width (pt)</label><input id="m2w" type="number" min=".05" max="12" step=".05" value=".6" aria-label="migration stroke width"></div>
       <div class="row"><span class="grow">lines / opacity</span><input type="color" id="m2c" aria-label="migration tone"><input type="range" id="m2o" min="0" max="1" step=".01" aria-label="migration line opacity"><input class="pct" id="m2o_pct" type="number" min="0" max="100" step="1" aria-label="migration line opacity percent"><span>%</span></div>
-      <div class="row"><span class="grow">start nodes</span><input type="color" id="m2s" aria-label="migration start node colour"></div>
-      <div class="row"><span class="grow">end nodes</span><input type="color" id="m2e" aria-label="migration end node colour"></div>
+      <div class="row"><label><input id="lineByShape" type="checkbox">line colors by destination cut shape</label></div>
+      <div id="shapeLineColors" hidden></div>
+      <p class="note">Cut-shape colors follow the destination piece, independently of the end-node marker.</p>
+      <div class="row"><label><input id="lineToneGradient" type="checkbox">tone gradient along lines</label></div>
+      <div class="row" id="lineGradientToneRow" hidden><label class="grow" for="m2_gradient_end">end tone</label><input type="color" id="m2_gradient_end" aria-label="line gradient end tone"><span class="note" id="shapeGradientNote" hidden>uses cut-shape colors</span></div>
+      <div class="row"><label><input id="lineOpacityGradient" type="checkbox">opacity gradient along lines</label></div>
+      <div class="row" id="lineGradientOpacityRow" hidden><span class="grow">end opacity</span><input type="range" id="m2_gradient_opacity" min="0" max="1" step=".01" aria-label="line gradient end opacity"><input class="pct" id="m2_gradient_opacity_pct" type="number" min="0" max="100" step="1" aria-label="line gradient end opacity percent"><span>%</span></div>
+      <p class="note">Gradients run from the start node to the destination. The line tone and opacity above set their starting values.</p>
+      <div class="row"><span class="grow">start nodes</span><input type="color" id="m2s" aria-label="migration start node colour"><input type="range" id="m2so" min="0" max="1" step=".01" aria-label="start node opacity"><input class="pct" id="m2so_pct" type="number" min="0" max="100" step="1" aria-label="start node opacity percent"><span>%</span></div>
+      <div class="row"><span class="grow">end nodes</span><input type="color" id="m2e" aria-label="migration end node colour"><input type="range" id="m2eo" min="0" max="1" step=".01" aria-label="end node opacity"><input class="pct" id="m2eo_pct" type="number" min="0" max="100" step="1" aria-label="end node opacity percent"><span>%</span></div>
       <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m2p" aria-label="migration paper colour"><input type="range" id="m2a" min="0" max="1" step=".01" aria-label="migration paper opacity"><input class="pct" id="m2a_pct" type="number" min="0" max="100" step="1" aria-label="migration paper opacity percent"><span>%</span></div>
       <div class="row"><b>3 final</b></div>
+      <div class="row"><label class="grow" for="m3w">stroke width (pt)</label><input id="m3w" type="number" min=".05" max="12" step=".05" value=".6" aria-label="final stroke width"></div>
       <div class="row"><span class="grow">tone / opacity</span><input type="color" id="m3c" aria-label="final tone"><input type="range" id="m3o" min="0" max="1" step=".01" aria-label="final line opacity"><input class="pct" id="m3o_pct" type="number" min="0" max="100" step="1" aria-label="final line opacity percent"><span>%</span></div>
       <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m3p" aria-label="final paper colour"><input type="range" id="m3a" min="0" max="1" step=".01" aria-label="final paper opacity"><input class="pct" id="m3a_pct" type="number" min="0" max="100" step="1" aria-label="final paper opacity percent"><span>%</span></div>
     </div>
@@ -393,7 +407,7 @@ const SL = {
 const P = {cw:.25,ch:.25}, SLIDER = {}, st = {files: [], w: 0, h: 0, touched: false, dpi: 300, fmt: 'png', bg: '#f4f2ee', unit: 'in', seed: 1,
   grid: false,   // guide grid overlay on the preview
   // migration map, per layer: tone, line opacity, paper colour, paper opacity (0 = no paper)
-  map: {smoothness: 12, pace: 6, anim_resolution: 'full', anim_renderer: 'cpu', anim: 'collage', node_start: 'dot', node_end: 'arrow', node_end_size: 1, m1c: '#8a8a90', m1o: .8, m1p: '#f4f2ee', m1a: 1, m2c: '#ff5a36', m2s: '#ff5a36', m2e: '#ff5a36', m2o: .8, m2p: '#f4f2ee', m2a: 0, m3c: '#18181b', m3o: 1, m3p: '#f4f2ee', m3a: 0}};
+  map: {smoothness: 12, pace: 6, anim_resolution: 'full', anim_renderer: 'cpu', anim: 'collage', map_file:'pdf', triptych_file:'png', node_start: 'dot', node_end: 'arrow', node_end_size: 1, m1w:.6, m2w:.6, m3w:.6, m2so:.8, m2eo:.8, m2_gradient_end:'#18181b', m2_gradient_opacity:0, m1c: '#8a8a90', m1o: .8, m1p: '#f4f2ee', m1a: 1, m2c: '#ff5a36', m2s: '#ff5a36', m2e: '#ff5a36', m2o: .8, m2p: '#f4f2ee', m2a: 0, m3c: '#18181b', m3o: 1, m3p: '#f4f2ee', m3a: 0}};
 const show = v => +(v * UN[st.unit]).toFixed(Math.abs(v * UN[st.unit]) < .1 ? 4 : st.unit === 'mm' ? 1 : 2);
 const toIn = v => v / UN[st.unit];
 
@@ -610,11 +624,11 @@ function outUI() {
   $('#ow').value = st.w ? show(st.w) : ''; $('#oh').value = st.h ? show(st.h) : ''; $('#ou').textContent = st.unit;
   const panelWidth = Math.max(1, Math.round(st.w * st.dpi)), h = Math.max(1, Math.round(st.h * st.dpi));
   const w = st.fmt === 'triptych' ? 3*panelWidth+2*Math.max(1,Math.round(.15*st.dpi)) : panelWidth, big = w * h > 4e8;
-  const map = st.fmt === 'map', lines = $('#lines');
-  $('#px').textContent = !st.w ? '' : map ? `vector · ${show(st.w)} × ${show(st.h)} ${st.unit}`
+  const map = st.fmt === 'map', vectorMap=map&&st.map.map_file==='pdf', lines = $('#lines');
+  $('#px').textContent = !st.w ? '' : vectorMap ? `vector · ${show(st.w)} × ${show(st.h)} ${st.unit}`
     : `${w} × ${h} px · ${(w * h / 1e6).toFixed(1)} MP${big ? ' · over the 400 MP limit' : ''}`;
-  $('#px').classList.toggle('warn', big && !map);
-  lines.disabled = !(P.ps < .999);   // linework only exists when portions are in play
+  $('#px').classList.toggle('warn', big && !vectorMap);
+  lines.disabled = map || st.fmt==='triptych' || (['gif','mp4'].includes(st.fmt)&&st.map.anim==='map') || !(P.ps < .999);
   if (lines.disabled) lines.checked = false;
   if (st.fmt==='txt') $('#px').textContent = 'plain text · settings and alterations';
   $('#go').textContent = 'export ' + st.fmt + (lines.checked && st.fmt!=='txt' ? ' + linework' : '');
@@ -627,8 +641,11 @@ $('#oh').oninput = () => { if (+$('#oh').value > 0) { st.h = toIn(+$('#oh').valu
 $('#dpi').oninput = () => { if (+$('#dpi').value > 0) { st.dpi = +$('#dpi').value; outUI(); } };
 function outputSections(f) {   // which option panels the chosen file type needs
   const anim = ['gif', 'mp4'].includes(f);
+  $('#triptychMenu').hidden=f!=='triptych';
   $('#animsec').hidden = !anim;
   $('#mapsec').hidden = !(['map', 'triptych'].includes(f) || (anim && st.map.anim === 'map'));   // a map animation uses the map's styling
+  $('#mapFileRow').hidden=f!=='map';
+  $('#mapExportNote').hidden=f!=='map';
 }
 function selectExportFormat(f) {
   if (!f) return;
@@ -652,6 +669,7 @@ const body = () => JSON.stringify({
   map: st.fmt === 'map', grid: st.grid, lines: $('#lines').checked, luminosity:{...st.lum,source:'collage'}});
 let busy = false, again = null;
 async function draw(fast) {
+  if(window.controlToolsSync)controlToolsSync();
   scheduleAnimationEstimate();
   if (window.studioSchedule) studioSchedule();
   if (!st.files.length) return;
@@ -750,7 +768,7 @@ function scheduleAnimationEstimate(force=false){
   },600);
 }
 function motionLabels() {
-  for (const id of ['m1o', 'm1a', 'm2o', 'm2a', 'm3o', 'm3a']) {   // opacity percentages next to the sliders
+  for (const id of ['m1o', 'm1a', 'm2o', 'm2a', 'm3o', 'm3a','m2so','m2eo','m2_gradient_opacity']) {
     const f = $('#' + id + '_pct'); if (f && document.activeElement !== f) f.value = Math.round(st.map[id] * 100);
   }
   $('#node_end_sizev').textContent = (+st.map.node_end_size).toFixed(2) + '×';
@@ -900,7 +918,8 @@ for (const [id, v] of Object.entries(st.map)) {
   const el = $('#' + id), fill = () => el.type === 'range' && el.style.setProperty('--p', (el.value-el.min)/(el.max-el.min)*100 + '%');
   el.value = v; fill();
   el.oninput = () => {
-    const old = st.map[id]; st.map[id] = el.type === 'range' ? +el.value : el.value;
+    const old = st.map[id]; st.map[id] = ['range','number'].includes(el.type) ? +el.value : el.value;
+    if(id==='map_file')outUI();
     if (id === 'anim') outputSections(st.fmt);
     if (id === 'm2c') for (const k of ['m2s', 'm2e']) if (st.map[k] === old) { st.map[k] = el.value; $('#' + k).value = el.value; }   // node colours follow the line colour until set apart
     fill(); motionLabels(); draw(true);
@@ -921,6 +940,7 @@ info(); outUI(); curveSet(false);
 <script src="/iteration.js"></script>
 <script src="/canvas.js"></script>
 <script src="/templates.js"></script>
+<script src="/color-tools.js"></script>
 </body>
 </html>
 

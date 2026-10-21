@@ -100,7 +100,7 @@ def run_gui_smoke_test(url: str, webview) -> None:
         try:
             title = window.evaluate_js("document.title")
             has_controls = window.evaluate_js(
-                "['open', 'pick', 'go', 'unit', 'animpreview', 'node_end_size', 'exportfolder', 'resetAll', 'canvasMenu', 'gradientStops', 'grainImport'].every(id => document.getElementById(id))"
+                "['open', 'pick', 'go', 'unit', 'animpreview', 'node_end_size', 'exportfolder', 'resetAll', 'canvasMenu', 'gradientStops', 'grainImport', 'toneEditor', 'triptych_file', 'm2so'].every(id => document.getElementById(id))"
             )
             if str(title).strip().lower() != "morphaic" or not has_controls:
                 raise RuntimeError("desktop smoke test loaded an unexpected page")
@@ -197,6 +197,13 @@ def verify_packaged_formats():
             raise RuntimeError(f'packaged luminosity {fmt} export produced no data')
     collage.export({**raw,'cut_shape':'star'},specs,store,'png')
     collage.export({**raw,'exposure':.5,'saturation':.7,'grain':.3,'gradient_amount':.5},specs,store,'png')
+    gradients={**raw,'line_tone_gradient':True,'line_opacity_gradient':True,'m2_gradient_opacity':.2}
+    data,name=collage.export({**gradients,'map_file':'png'},specs,store,'map',lines=True)
+    if name!='collage-map.png' or not data.startswith(b'\x89PNG'):
+        raise RuntimeError('packaged map export produced an unexpected file')
+    data,name=collage.export({**gradients,'triptych_file':'pdf'},specs,store,'triptych')
+    if name!='collage-triptych.pdf' or not data.startswith(b'%PDF'):
+        raise RuntimeError('packaged triptych PDF export produced an unexpected file')
     luminosity.export(raw,specs,store,{**relief,'width_mm':1,'height_mm':1,'spacing_mm':.01},'stl')
     luminosity.export(raw,specs,store,{**relief,'width_mm':100,'height_mm':75,'spacing_mm':5,'cleat':True},'3dm')
 
@@ -273,3 +280,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

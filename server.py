@@ -76,7 +76,7 @@ def read_settings():
 
 
 SETTINGS_LOCK = threading.Lock()
-MAP_KEYS = tuple(k for k in collage.SPEC if k.startswith('m') and k[1:2] in ('1','2','3')) + tuple(k for k in collage.COLORS if k.startswith('m')) + ('m2s','m2e','node_start','node_end','node_end_size','node_by_shape','node_end_shapes')
+MAP_KEYS = tuple(k for k in collage.SPEC if k.startswith('m') and k[1:2] in ('1','2','3')) + tuple(k for k in collage.COLORS if k.startswith('m')) + ('m2s','m2e','node_start','node_end','node_end_size','node_by_shape','node_end_shapes','line_by_shape','line_shape_colors','line_tone_gradient','line_opacity_gradient')
 
 
 def update_settings(changes):
@@ -163,7 +163,7 @@ if getattr(sys, "frozen", False):
     # is stable across launches and changes when the bundled app is replaced.
     STAMP = str(Path(sys.executable).stat().st_mtime_ns)
 else:
-    STAMP = str(max((ROOT / f).stat().st_mtime_ns for f in ("collage.py", "animation_gpu.py", "effects.py", "server.py", "luminosity.py", "mounting.py", "shapes.py", "index.html", "studio.js", "controls.js", "iteration.js", "ui.css", "iteration.css", "glass.css", "canvas.js", "templates.js", "indesign.py")))
+    STAMP = str(max((ROOT / f).stat().st_mtime_ns for f in ("collage.py", "animation_gpu.py", "map_gradients.py", "effects.py", "server.py", "luminosity.py", "mounting.py", "shapes.py", "index.html", "studio.js", "controls.js", "iteration.js", "ui.css", "iteration.css", "glass.css", "canvas.js", "templates.js", "color-tools.js", "indesign.py")))
 EXT = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".bmp", ".gif", ".pdf", ".heic", ".heif"}
 
 
@@ -244,7 +244,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, {'stencils': stencil_library()})
             elif self.path == "/":
                 self.reply(200, (ROOT / "index.html").read_bytes(), "text/html; charset=utf-8")
-            elif self.path in ('/studio.js', '/controls.js', '/iteration.js', '/canvas.js', '/templates.js'):
+            elif self.path in ('/studio.js', '/controls.js', '/iteration.js', '/canvas.js', '/templates.js', '/color-tools.js'):
                 self.reply(200, (ROOT / self.path[1:]).read_bytes(), 'text/javascript; charset=utf-8')
             elif self.path in ('/ui.css', '/iteration.css', '/glass.css'):
                 self.reply(200, (ROOT / self.path[1:]).read_bytes(), 'text/css; charset=utf-8')

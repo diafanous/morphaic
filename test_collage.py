@@ -311,7 +311,7 @@ def test_portion_linework_and_zip():
     data, name = C.export(raw, specs, store, "map")
     assert name == "collage-map.pdf" and data[:4] == b"%PDF"                            # one drawing, not a zip
     data, name = C.export(raw, specs, store, "map", lines=True)
-    assert name == "collage-map.zip" and sorted(zipfile.ZipFile(io.BytesIO(data)).namelist()) == ["collage-map.pdf", "collage-portions.pdf"]   # + portion linework
+    assert name == 'collage-map.pdf' and data[:4] == b'%PDF'  # map exports never bundle unrelated portion linework
     try:
         C.export({**raw, "ps": 1}, specs, store, "png", lines=True)
     except ValueError as e:
