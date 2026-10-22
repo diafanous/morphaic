@@ -5,12 +5,12 @@ body{isolation:isolate;background:#181818}
 aside{position:relative;z-index:1;padding:0 4px 0 18px;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;border:0;box-shadow:none}
 /* Keep the scrollbar four pixels from the edge, without crowding the controls. */
 #sideScroll,#settingsPanel{padding-right:12px;scrollbar-color:var(--scroll) transparent}
-header{height:62px;flex-basis:62px;padding-right:14px;gap:6px}
+header{height:62px;flex-basis:62px;padding-top:22px;padding-right:14px;gap:6px}
 header #panelTitle{letter-spacing:-.04em;font-size:15px}
 header #undo,header #redo,header #resetAll,header #settings{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border:1px solid var(--glass-edge);border-radius:8px;background:linear-gradient(145deg,#ffffff0d,#ffffff03);box-shadow:inset 0 1px 0 #ffffff0d}
 header #resetAll{font-size:22px}
 header #undo:hover:not(:disabled),header #redo:hover:not(:disabled),header #resetAll:hover,header #settings:hover,header #settings[aria-expanded=true]{background:var(--glass-card);border-color:var(--dim);color:var(--fg)}
-header #go{padding:6px 10px;border-radius:11px;border-color:rgba(255,255,255,.35);background:linear-gradient(145deg,#ffffff16,#ffffff05);box-shadow:inset 0 1px 0 #ffffff24,0 3px 9px #00000022}
+header #go{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;height:28px;padding:0 10px;border:1px solid var(--glass-edge);border-radius:8px;background:linear-gradient(145deg,#ffffff16,#ffffff05);box-shadow:inset 0 1px 0 #ffffff24,0 3px 9px #00000022}
 header #go:hover:not(:disabled){background:var(--fg);color:var(--bg)}
 section{margin-bottom:10px;padding:15px 14px 4px;border:1px solid var(--glass-edge);border-radius:17px;background:linear-gradient(135deg,var(--glass-shine),transparent 46%),var(--glass-card);box-shadow:inset 0 1px 0 #ffffff09,0 4px 14px #00000008}
 .panel-disclosure>summary{min-height:25px}
@@ -18,12 +18,15 @@ section{margin-bottom:10px;padding:15px 14px 4px;border:1px solid var(--glass-ed
 .panel-disclosure>summary h2{color:var(--fg)}
 .panel-disclosure>summary::after{margin-right:2px}
 #tools,#canvasMenu,#stencilLibrary,#resetDialog,#motionDialog,#reliefDialog{border:1px solid var(--glass-edge);border-radius:18px;background:linear-gradient(135deg,var(--glass-shine),transparent 50%),var(--glass);backdrop-filter:blur(28px) saturate(130%);-webkit-backdrop-filter:blur(28px) saturate(130%);box-shadow:inset 0 1px 0 #ffffff1a,0 16px 45px #00000044}
-#tools{top:14px;left:14px;padding:3px;gap:5px;box-shadow:inset 0 1px 0 #ffffff1a,0 6px 22px #00000022}
+#tools{top:14px;left:14px;padding:3px;gap:5px;border-color:transparent;border-radius:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none}
 #tools button{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:1px solid var(--glass-edge);border-radius:8px;background:var(--glass-card)}
 #tools svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.4;pointer-events:none}
 #settingsText{box-sizing:border-box;width:100%;resize:vertical;padding:8px;background:var(--panel);color:var(--fg);border:1px solid var(--glass-edge);border-radius:8px;font:11px/1.5 monospace}
 #projectSettings,#settingsTextPanel{margin:16px 0;padding-bottom:12px;border-bottom:1px solid var(--glass-edge)}
 #projectSettings summary,#settingsTextPanel summary{cursor:pointer;margin-bottom:12px}
+#projectSave,#projectOpen,#settingsTextCurrent,#settingsTextApply{min-height:28px;padding:4px 10px;border:1px solid var(--glass-edge);border-radius:8px;background:var(--glass-card);box-shadow:inset 0 1px 0 #ffffff0d}
+#projectSave:hover,#projectOpen:hover,#settingsTextCurrent:hover,#settingsTextApply:hover{border-color:var(--dim);color:var(--fg)}
+#projectStatus:empty,#settingsTextStatus:empty{display:none}
 #tools button:hover{background:#ffffff0d}
 #frame{box-shadow:0 0 0 1px #ffffff20,0 22px 65px #00000066}
 #empty{color:var(--dim)}

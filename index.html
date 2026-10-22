@@ -287,13 +287,11 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     <div class="row export-topline"><input id="exportfolder" aria-label="export folder" placeholder="Downloads"><button id="exportbrowse" aria-label="choose export folder" title="Choose export folder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5h6l2 2h10v12H3Z"/></svg></button><button id="closeSettings">done</button></div>
     <details id="projectSettings" open><summary>projects</summary>
       <div class="row"><label for="projectKind" class="grow">save as</label><select id="projectKind"><option value="project">.morphaic project (recommended)</option><option value="png">editable PNG image</option></select></div>
-      <p class="note">Projects bundle the original files and all edits without reducing image quality. Editable PNG includes a full-resolution image plus the same project data and is usually larger.</p>
       <div class="row"><button id="projectSave">save project</button><button id="projectOpen">open project</button></div>
       <input id="projectFile" type="file" accept=".morphaic,.png" hidden>
-      <p id="projectStatus" class="note" role="status" aria-live="polite">Save to your export folder; reopen to continue editing.</p>
+      <p id="projectStatus" class="note" role="status" aria-live="polite"></p>
     </details>
     <details id="settingsTextPanel"><summary>edit from settings text</summary>
-      <p class="note">Paste Morphaic settings JSON or a partial edit such as {"exposure":0.5}. Changes apply to the current images.</p>
       <textarea id="settingsText" rows="7" aria-label="editable settings text" spellcheck="false" placeholder='{"exposure":0.5}'></textarea>
       <div class="row"><button id="settingsTextCurrent">use current settings</button><button id="settingsTextApply">apply text</button></div>
       <p id="settingsTextStatus" class="note" role="status" aria-live="polite"></p>
