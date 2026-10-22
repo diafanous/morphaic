@@ -153,3 +153,7 @@ header #undo:disabled,header #redo:disabled{opacity:1;color:#777}
 #toneEditor footer{display:flex;justify-content:flex-end;margin-top:18px}
 #toneEditor footer button{padding:6px 16px;border:1px solid var(--dim);border-radius:8px}
 
+
+.map-layer{margin:10px 0;border-top:1px solid var(--glass-edge)}
+.map-layer>summary{padding:10px 0;cursor:pointer;font-weight:500}
+.map-layer[open]>summary{margin-bottom:4px}

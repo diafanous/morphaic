@@ -255,6 +255,11 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     <div class="row" id="cutTools"><button id="knifeOpen">cutting mat</button><div class="stencil-library-wrap"><button id="stencilLibraryToggle" aria-haspopup="menu" aria-expanded="false" aria-controls="stencilLibrary">saved stencils</button><div id="stencilLibrary" role="menu" aria-label="saved stencils" hidden></div></div></div>
   </details>
   </section>
+  <section>
+    <details id="layersDisclosure" class="panel-disclosure" open><summary aria-label="layer settings"><h2>layers</h2></summary><div id="sl-layers"></div>
+    <div class="row"><span>seed</span><button id="seed">↻ <span id="seedn"></span></button><span class="grow"></span><span>paper</span><input id="bg" type="color" aria-label="background colour"></div>
+    </details>
+  </section>
   <section><details id="collageDisclosure" class="panel-disclosure" open><summary aria-label="collage settings"><h2>collage</h2></summary><div id="sl-collage"></div></details></section>
   <section>
     <details id="guidesDisclosure" class="panel-disclosure"><summary aria-label="guide settings"><h2>guides</h2></summary><div id="sl-guides"></div></details>
@@ -263,11 +268,6 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     <details id="toneDisclosure" class="panel-disclosure" open><summary aria-label="tone settings"><h2>tone</h2></summary><div id="sl-tone"></div>
     <canvas id="curve" width="440" height="440" aria-label="tone curve: click to add a point, drag to move, double-click a point to remove"></canvas>
     <div class="row"><span class="grow">curve</span><button id="curvereset">reset</button></div>
-    </details>
-  </section>
-  <section>
-    <details id="layersDisclosure" class="panel-disclosure" open><summary aria-label="layer settings"><h2>layers</h2></summary><div id="sl-layers"></div>
-    <div class="row"><span>seed</span><button id="seed">↻ <span id="seedn"></span></button><span class="grow"></span><span>paper</span><input id="bg" type="color" aria-label="background colour"></div>
     </details>
   </section>
   <section><details id="gradingDisclosure" class="panel-disclosure"><summary><h2>color grading</h2></summary><div id="sl-grading"></div></details></section>
@@ -321,28 +321,29 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
       <div class="row"><label><input id="nodeByShape" type="checkbox">end nodes by cut shape</label></div><div id="shapeNodes" hidden></div>
       <div class="sl"><span>end node size</span><output id="node_end_sizev">1.00×</output><input id="node_end_size" type="range" min="0.25" max="6" step="0.05" value="1" aria-label="migration end node size"></div>
       <div class="row"><button id="saveMapDefaults">save map settings as default</button></div>
-      <div class="row"><b>1 initial</b></div>
+      <details class="map-layer" id="mapInitial"><summary>1 initial</summary>
       <div class="row"><label class="grow" for="m1w">stroke width (pt)</label><input id="m1w" type="number" min=".05" max="12" step=".05" value=".6" aria-label="initial stroke width"></div>
       <div class="row"><span class="grow">tone / opacity</span><input type="color" id="m1c" aria-label="initial tone"><input type="range" id="m1o" min="0" max="1" step=".01" aria-label="initial line opacity"><input class="pct" id="m1o_pct" type="number" min="0" max="100" step="1" aria-label="initial line opacity percent"><span>%</span></div>
       <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m1p" aria-label="initial paper colour"><input type="range" id="m1a" min="0" max="1" step=".01" aria-label="initial paper opacity"><input class="pct" id="m1a_pct" type="number" min="0" max="100" step="1" aria-label="initial paper opacity percent"><span>%</span></div>
-      <div class="row"><b>2 migration</b></div>
+      </details>
+      <details class="map-layer" id="mapMigration"><summary>2 migration</summary>
       <div class="row"><label class="grow" for="m2w">stroke width (pt)</label><input id="m2w" type="number" min=".05" max="12" step=".05" value=".6" aria-label="migration stroke width"></div>
       <div class="row"><span class="grow">lines / opacity</span><input type="color" id="m2c" aria-label="migration tone"><input type="range" id="m2o" min="0" max="1" step=".01" aria-label="migration line opacity"><input class="pct" id="m2o_pct" type="number" min="0" max="100" step="1" aria-label="migration line opacity percent"><span>%</span></div>
-      <div class="row"><label><input id="lineByShape" type="checkbox">line colors by destination cut shape</label></div>
+      <div class="row"><label><input id="lineByShape" type="checkbox">color by cut shape</label></div>
       <div id="shapeLineColors" hidden></div>
-      <p class="note">Cut-shape colors follow the destination piece, independently of the end-node marker.</p>
-      <div class="row"><label><input id="lineToneGradient" type="checkbox">tone gradient along lines</label></div>
+      <div class="row"><label><input id="lineToneGradient" type="checkbox">tone gradient</label></div>
       <div class="row" id="lineGradientToneRow" hidden><label class="grow" for="m2_gradient_end">end tone</label><input type="color" id="m2_gradient_end" aria-label="line gradient end tone"><span class="note" id="shapeGradientNote" hidden>uses cut-shape colors</span></div>
-      <div class="row"><label><input id="lineOpacityGradient" type="checkbox">opacity gradient along lines</label></div>
+      <div class="row"><label><input id="lineOpacityGradient" type="checkbox">opacity gradient</label></div>
       <div class="row" id="lineGradientOpacityRow" hidden><span class="grow">end opacity</span><input type="range" id="m2_gradient_opacity" min="0" max="1" step=".01" aria-label="line gradient end opacity"><input class="pct" id="m2_gradient_opacity_pct" type="number" min="0" max="100" step="1" aria-label="line gradient end opacity percent"><span>%</span></div>
-      <p class="note">Gradients run from the start node to the destination. The line tone and opacity above set their starting values.</p>
       <div class="row"><span class="grow">start nodes</span><input type="color" id="m2s" aria-label="migration start node colour"><input type="range" id="m2so" min="0" max="1" step=".01" aria-label="start node opacity"><input class="pct" id="m2so_pct" type="number" min="0" max="100" step="1" aria-label="start node opacity percent"><span>%</span></div>
       <div class="row"><span class="grow">end nodes</span><input type="color" id="m2e" aria-label="migration end node colour"><input type="range" id="m2eo" min="0" max="1" step=".01" aria-label="end node opacity"><input class="pct" id="m2eo_pct" type="number" min="0" max="100" step="1" aria-label="end node opacity percent"><span>%</span></div>
       <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m2p" aria-label="migration paper colour"><input type="range" id="m2a" min="0" max="1" step=".01" aria-label="migration paper opacity"><input class="pct" id="m2a_pct" type="number" min="0" max="100" step="1" aria-label="migration paper opacity percent"><span>%</span></div>
-      <div class="row"><b>3 final</b></div>
+      </details>
+      <details class="map-layer" id="mapFinal"><summary>3 final</summary>
       <div class="row"><label class="grow" for="m3w">stroke width (pt)</label><input id="m3w" type="number" min=".05" max="12" step=".05" value=".6" aria-label="final stroke width"></div>
       <div class="row"><span class="grow">tone / opacity</span><input type="color" id="m3c" aria-label="final tone"><input type="range" id="m3o" min="0" max="1" step=".01" aria-label="final line opacity"><input class="pct" id="m3o_pct" type="number" min="0" max="100" step="1" aria-label="final line opacity percent"><span>%</span></div>
       <div class="row"><span class="grow">paper / opacity</span><input type="color" id="m3p" aria-label="final paper colour"><input type="range" id="m3a" min="0" max="1" step=".01" aria-label="final paper opacity"><input class="pct" id="m3a_pct" type="number" min="0" max="100" step="1" aria-label="final paper opacity percent"><span>%</span></div>
+      </details>
     </div>
     </div>
     <div id="output3d" hidden>

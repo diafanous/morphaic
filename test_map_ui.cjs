@@ -7,7 +7,7 @@ const base=process.env.MORPHAIC_TEST_URL||'http://127.0.0.1:8872';
     const page=await browser.newPage({viewport:{width:840,height:620}});
     const errors=[];page.on('pageerror',e=>errors.push(e.message));
     await page.goto(base);await page.waitForFunction(()=>window.effectsSync&&window.studioReset);
-    await page.locator('#settings').click();await page.locator('#fmt').selectOption('map');
+    await page.locator('#settings').click();await page.locator('#fmt').selectOption('map');await page.locator('#mapMigration>summary').click();
     const originalTone=await page.locator('#m2c').inputValue();
     await page.getByRole('button',{name:'edit migration tone hue and hex',exact:true}).click();
     await page.getByLabel('tone hex code',{exact:true}).fill('#123456');
