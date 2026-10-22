@@ -660,7 +660,6 @@ function outputSections(f) {   // which option panels the chosen file type needs
   $('#animsec').hidden = !anim;
   $('#mapsec').hidden = !(['map', 'triptych'].includes(f) || (anim && st.map.anim === 'map'));   // a map animation uses the map's styling
   $('#mapFileRow').hidden=f!=='map';
-  $('#mapExportNote').hidden=f!=='map';
 }
 function selectExportFormat(f) {
   if (!f) return;
