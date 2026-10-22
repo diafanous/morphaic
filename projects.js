@@ -1,15 +1,21 @@
 // Portable projects keep original assets, the editable recipe and the canvas view.
 async function projectResponse(response){const value=await response.json();if(!response.ok)throw Error(value.error||'Project operation failed.');return value;}
 function projectSize(bytes){return bytes<1024*1024?(bytes/1024).toFixed(1)+' KB':(bytes/1024/1024).toFixed(1)+' MB';}
-$('#projectSave').onclick=async()=>{
+$('#projectSave').onclick=()=>$('#projectSaveDialog').showModal();
+$('#projectSaveCancel').onclick=()=>$('#projectSaveDialog').close();
+$('#projectSaveDialog').addEventListener('click',event=>{
+  const kind=event.target.closest('[data-project-kind]')?.dataset.projectKind;
+  if(kind){$('#projectSaveDialog').close();saveProject(kind);}
+});
+async function saveProject(kind){
   const button=$('#projectSave'),status=$('#projectStatus');button.disabled=true;status.textContent='Saving project…';
   try{
     finishHistory();await exportFolderReady;await saveExportFolder();
-    const request={...JSON.parse(body()),snapshot:editSnapshot(),view:copy(canvasView),template:copy(st.template),kind:$('#projectKind').value};
+    const request={...JSON.parse(body()),snapshot:editSnapshot(),view:copy(canvasView),template:copy(st.template),kind};
     const value=await projectResponse(await fetch('/project/save',{method:'POST',body:JSON.stringify(request)}));
     status.textContent=`${value.name} · ${projectSize(value.bytes)} · saved to ${value.path}`;
   }catch(error){status.textContent=error.message;}finally{button.disabled=false;}
-};
+}
 $('#projectOpen').onclick=()=>$('#projectFile').click();
 async function openProject(file){
   const status=$('#projectStatus'),button=$('#projectOpen');button.disabled=true;status.textContent='Opening project…';
