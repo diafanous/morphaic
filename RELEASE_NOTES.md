@@ -1,3 +1,13 @@
+# Morphaic 1.3.1
+
+- Removed the pill-shaped background behind Draw, Grid and Clear, keeping the buttons in place.
+- Standardized the top controls to a 28-pixel height and aligned the left and right toolbars.
+- Simplified project controls to Save and Open buttons. Clicking Save opens the .morphaic / editable PNG format chooser.
+- Renamed the settings text submenu to "text settings" and removed extra helper text.
+- Map styling is grouped into collapsible Initial, Migration and Final submenus. Shortened color/gradient labels and removed explanatory notes.
+- Moved Layers directly above Collage in the sidebar.
+- Both project formats, map controls and responsive toolbar alignment are verified; platform builds run packaged smoke tests before upload.
+
 # Morphaic 1.3.0
 
 - Removed the visible desktop title bar. Hover at the upper edge to reveal a drag grip; double-click to maximize or restore.

@@ -1,4 +1,4 @@
-param([string]$Name = 'morphaic-1.3.0')
+param([string]$Name = 'morphaic-1.3.1')
 $ErrorActionPreference = 'Stop'
 Push-Location $PSScriptRoot
 try {
