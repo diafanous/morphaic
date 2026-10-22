@@ -315,7 +315,6 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
     <input id="lines" type="checkbox" hidden>
     <div id="mapsec" hidden>
       <div class="row" id="mapFileRow"><label class="grow" for="map_file">map file</label><select id="map_file" aria-label="map file format"><option value="pdf" selected>vector PDF</option><option value="png">PNG</option><option value="tif">TIFF</option></select></div>
-      <p class="note" id="mapExportNote">One file showing the current map. PNG and TIFF use the selected DPI; PDF preserves vector detail.</p>
       <div class="row"><span class="grow">start node</span><select id="node_start" aria-label="migration start node"><option value="none">none</option><option value="dot" selected>dot</option><option value="ring">ring</option><option value="square">square</option><option value="plus">plus (+)</option></select></div>
       <div class="row"><span class="grow">end node</span><select id="node_end" aria-label="migration end node"><option value="none">none</option><option value="arrow" selected>arrow</option><option value="dot">dot</option><option value="ring">ring</option><option value="square">square</option><option value="plus">plus (+)</option></select></div>
       <div class="row"><label><input id="nodeByShape" type="checkbox">end nodes by cut shape</label></div><div id="shapeNodes" hidden></div>
