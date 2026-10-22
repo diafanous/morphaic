@@ -42,6 +42,9 @@ jobs:
       - name: Verify morphaic processing and server
         run: uv run --locked python test_collage.py
 
+      - name: Verify portable projects and editable PNG
+        run: uv run --locked python test_projects.py
+
       - name: Verify UI parameter constraints
         run: node test_controls.js
 
@@ -57,7 +60,7 @@ jobs:
           uv run --locked python test_relief_quality.py
 
       - name: Build morphaic.exe
-        run: uv run --locked --extra desktop --group build pyinstaller --clean --noconfirm --onefile --windowed --name morphaic --add-data "index.html;." --add-data "studio.js;." --add-data "controls.js;." --add-data "iteration.js;." --add-data "ui.css;." --add-data "iteration.css;." --add-data "glass.css;." --add-data "color-tools.js;." --add-data "canvas.js;." --add-data "templates.js;." --add-data "windows/indesign.jsx;windows" --add-data "windows/run-indesign.ps1;windows" --add-data "assets;assets" --icon "assets/morphaic.ico" --version-file "windows/version-info.txt" --collect-all moderngl --collect-all glcontext --collect-all manifold3d --collect-all rhino3dm --collect-all imageio_ffmpeg --collect-all pillow_heif --exclude-module PIL._imagingft desktop.py
+        run: uv run --locked --extra desktop --group build pyinstaller --clean --noconfirm --onefile --windowed --name morphaic --add-data "index.html;." --add-data "studio.js;." --add-data "controls.js;." --add-data "iteration.js;." --add-data "ui.css;." --add-data "iteration.css;." --add-data "glass.css;." --add-data "color-tools.js;." --add-data "projects.js;." --add-data "canvas.js;." --add-data "templates.js;." --add-data "windows/indesign.jsx;windows" --add-data "windows/run-indesign.ps1;windows" --add-data "assets;assets" --icon "assets/morphaic.ico" --version-file "windows/version-info.txt" --collect-all moderngl --collect-all glcontext --collect-all manifold3d --collect-all rhino3dm --collect-all imageio_ffmpeg --collect-all pillow_heif --exclude-module PIL._imagingft desktop.py
 
       - name: Smoke-test packaged executable
         shell: pwsh
@@ -123,6 +126,9 @@ jobs:
       - name: Verify processing and server
         run: uv run --locked python test_collage.py
 
+      - name: Verify portable projects and editable PNG
+        run: uv run --locked python test_projects.py
+
       - name: Verify UI parameter constraints
         run: node test_controls.js
 
@@ -132,7 +138,7 @@ jobs:
           uv run --locked python test_relief_quality.py
 
       - name: Build morphaic.app
-        run: uv run --locked --extra desktop --group build pyinstaller --clean --noconfirm --onedir --windowed --name morphaic --osx-bundle-identifier com.diafanous.morphaic --add-data "index.html:." --add-data "studio.js:." --add-data "controls.js:." --add-data "iteration.js:." --add-data "ui.css:." --add-data "iteration.css:." --add-data "glass.css:." --add-data "color-tools.js:." --add-data "canvas.js:." --add-data "templates.js:." --add-data "assets:assets" --collect-all moderngl --collect-all glcontext --collect-all manifold3d --collect-all rhino3dm --collect-all imageio_ffmpeg --collect-all pillow_heif --exclude-module PIL._imagingft desktop.py
+        run: uv run --locked --extra desktop --group build pyinstaller --clean --noconfirm --onedir --windowed --name morphaic --osx-bundle-identifier com.diafanous.morphaic --add-data "index.html:." --add-data "studio.js:." --add-data "controls.js:." --add-data "iteration.js:." --add-data "ui.css:." --add-data "iteration.css:." --add-data "glass.css:." --add-data "color-tools.js:." --add-data "projects.js:." --add-data "canvas.js:." --add-data "templates.js:." --add-data "assets:assets" --collect-all moderngl --collect-all glcontext --collect-all manifold3d --collect-all rhino3dm --collect-all imageio_ffmpeg --collect-all pillow_heif --exclude-module PIL._imagingft desktop.py
 
       - name: Smoke-test packaged Mac app
         env:

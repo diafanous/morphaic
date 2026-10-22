@@ -12,6 +12,12 @@ $('#fmt').parentElement.insertAdjacentHTML('afterend',`<section id="templatePane
   <p class="note">Labeled frames choose their drawings automatically. Assign any remaining frames below. Export includes INDD, IDML and PDF.</p>
 </section>`);
 function templateChoices(){return [['','keep template content'],['collage','finished collage'],['initial','initial drawing'],['migration','migration drawing'],['final','final drawing'],['map','layered migration map'],...st.files.map((f,i)=>['source:'+(i+1),'source '+(i+1)+' · '+f.name])];}
+window.templateRestore=value=>{
+  value=value||{id:'',name:'',frames:[],mapping:{},fit:'contain',title:''};
+  st.template=copy(value);$('#templateName').textContent=value.name||'No template selected';
+  $('#templateFit').value=value.fit||'contain';$('#templateTitle').value=value.title||'';
+  templateAssignments();templateOutput();
+};
 function templateAssignments(){
   const container=$('#templateAssignments');container.replaceChildren();
   for(const frame of st.template.frames){
@@ -60,3 +66,4 @@ window.templateExport=async()=>{
 $('#fmt').addEventListener('change',()=>{if(st.fmt==='indesign')templateAssignments();});
 fetch('/indesign/status').then(r=>r.json()).then(result=>{if(!result.available)$('#templateStatus').textContent='Template export requires Adobe InDesign installed on Windows.';}).catch(()=>{});
 templateOutput();
+

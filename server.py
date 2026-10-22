@@ -18,6 +18,7 @@ import collage
 import indesign
 import luminosity
 import shapes
+import projects
 
 def resource_root():
     """Return the directory containing bundled data files when frozen."""
@@ -163,7 +164,7 @@ if getattr(sys, "frozen", False):
     # is stable across launches and changes when the bundled app is replaced.
     STAMP = str(Path(sys.executable).stat().st_mtime_ns)
 else:
-    STAMP = str(max((ROOT / f).stat().st_mtime_ns for f in ("collage.py", "animation_gpu.py", "map_gradients.py", "effects.py", "server.py", "luminosity.py", "mounting.py", "shapes.py", "index.html", "studio.js", "controls.js", "iteration.js", "ui.css", "iteration.css", "glass.css", "canvas.js", "templates.js", "color-tools.js", "indesign.py")))
+    STAMP = str(max((ROOT / f).stat().st_mtime_ns for f in ("collage.py", "animation_gpu.py", "map_gradients.py", "effects.py", "server.py", "luminosity.py", "mounting.py", "shapes.py", "index.html", "studio.js", "controls.js", "iteration.js", "ui.css", "iteration.css", "glass.css", "canvas.js", "templates.js", "color-tools.js", "projects.js", "projects.py", "indesign.py")))
 EXT = {".png", ".jpg", ".jpeg", ".tif", ".tiff", ".webp", ".bmp", ".gif", ".pdf", ".heic", ".heif"}
 
 
@@ -244,7 +245,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.reply(200, {'stencils': stencil_library()})
             elif self.path == "/":
                 self.reply(200, (ROOT / "index.html").read_bytes(), "text/html; charset=utf-8")
-            elif self.path in ('/studio.js', '/controls.js', '/iteration.js', '/canvas.js', '/templates.js', '/color-tools.js'):
+            elif self.path in ('/studio.js', '/controls.js', '/iteration.js', '/canvas.js', '/templates.js', '/color-tools.js', '/projects.js'):
                 self.reply(200, (ROOT / self.path[1:]).read_bytes(), 'text/javascript; charset=utf-8')
             elif self.path in ('/ui.css', '/iteration.css', '/glass.css'):
                 self.reply(200, (ROOT / self.path[1:]).read_bytes(), 'text/css; charset=utf-8')
@@ -259,7 +260,22 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         def go():
-            if self.path == '/indesign/template':
+            if self.path in ('/project/save', '/project/open', '/settings/parse'):
+                limit = projects.MAX_PROJECT_BYTES if self.path == '/project/open' else 4 * 1024 * 1024
+                if int(self.headers.get('Content-Length') or 0) > limit:
+                    raise ValueError('Project or settings request is too large.')
+                data = self.body()
+                if self.path == '/project/open':
+                    self.reply(200, projects.load(data, STORE))
+                elif self.path == '/settings/parse':
+                    req = json.loads(data)
+                    self.reply(200, projects.parse_settings(req['text'], req['current'], STORE))
+                else:
+                    req = json.loads(data)
+                    output, name = projects.save(req, STORE, req.get('kind', 'project'))
+                    saved = save_export(output, name)
+                    self.reply(200, {'path': str(saved), 'name': saved.name, 'bytes': len(output)})
+            elif self.path == '/indesign/template':
                 if int(self.headers.get('Content-Length') or 0) > indesign.MAX_TEMPLATE_BYTES:
                     raise ValueError('Choose a template smaller than 150 MB.')
                 self.reply(200, indesign.import_template(unquote(self.headers.get('X-Name', 'template')), self.body()))
