@@ -1,3 +1,13 @@
+# Morphaic 1.3.0
+
+- Removed the visible desktop title bar. Hover at the upper edge to reveal a drag grip; double-click to maximize or restore.
+- Draw, grid and clear buttons now match the 28-pixel header controls.
+- Save and reopen portable `.morphaic` projects containing original images/PDFs, editable settings, custom grain, strokes, canvas view and InDesign template assignments. Original source data is preserved without quality loss.
+- Optional full-resolution editable PNG shows the current collage or map and embeds the complete project for reopening in Morphaic. `.morphaic` is recommended for smaller files.
+- Settings text accepts exported Morphaic JSON or partial edits, with validation and Undo. Unrelated strokes and curve handles stay unchanged.
+- Project imports validate archive sizes, paths, checksums and PNG CRCs before changing session data. Fresh source IDs preserve existing Undo history.
+- Windows, Intel Mac and Apple Silicon Mac downloads are built and smoke-tested before release.
+
 # Morphaic 1.2.0
 
 - Full-width desktop title bar makes the window easier to drag; double-click maximizes or restores it.

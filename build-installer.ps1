@@ -16,5 +16,5 @@ try {
     if (-not $Compiler) { throw 'Install Inno Setup 6 or newer, or pass -Compiler with the path to ISCC.exe.' }
     & $Compiler 'windows\morphaic.iss'
     if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
-    Write-Output (Join-Path $PSScriptRoot 'dist\morphaic-1.2.0-setup.exe')
+    Write-Output (Join-Path $PSScriptRoot 'dist\morphaic-1.3.0-setup.exe')
 } finally { Pop-Location }
