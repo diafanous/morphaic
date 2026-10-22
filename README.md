@@ -122,7 +122,7 @@ The liquid-glass study uses translucent cards, soft reflections and a scrollbar 
 
 ## InDesign templates
 
-Choose **InDesign** in 2D export, then **import file**. The selector starts empty and accepts `.indd`, `.indt` and `.idml`. Adobe InDesign must be installed on Windows. Morphaic reads the template's image frames and lets you choose what drawing goes in each; unassigned frames keep their original content. Importing a different template replaces the frame assignments. Templates and assignments are retained only for the current app session.
+Choose **InDesign** in 2D export, then **import file**. The selector starts empty and accepts `.indd`, `.indt` and `.idml`. Adobe InDesign must be installed on Windows. Morphaic reads the template's image frames and lets you choose what drawing goes in each; unassigned frames keep their original content. Importing a different template replaces the frame assignments. Save a Morphaic project to retain the template and assignments across sessions.
 
 For automatic placement, set image frame Script Labels in InDesign to `morphaic:collage`, `morphaic:initial`, `morphaic:migration`, `morphaic:final`, `morphaic:map`, or `morphaic:source:1` (source numbers follow the current source list). Labels without the `morphaic:` prefix also work for image frames. Unlabeled frames can be assigned manually. Use `morphaic:title` or `morphaic:seed` on text frames to fill the drawing title or seed. Choose fit entire image or fill frame to control cropping.
 
@@ -137,3 +137,14 @@ Map exports save exactly the displayed drawing as one vector PDF, PNG or TIFF. R
 Every color swatch has a hue/hex editor with saturation, lightness and the native color picker, including dynamically added gradient stops and cut-shape colors. Opacity controls show editable percentages and percentage tooltips.
 
 The Triptych export has its own PNG/PDF submenu. Both are one-file compositions. PDF places the original and collage panels at the selected DPI and preserves the migration map as vector artwork, including native smooth tone/opacity gradients.
+
+
+## Editable projects and settings text
+
+In Settings, **save project** writes a `.morphaic` file to the selected export folder. This is the recommended format: a compressed archive containing the exact original images/PDFs, editable parameters, custom grain, guide strokes, template and assignments, and a compact preview. Reopening does not depend on the originals remaining on disk. It preserves the canvas view and can be undone. Only referenced assets are included; existing JPEG/PNG/PDF compression means file size is generally close to the originals plus a small recipe and preview.
+
+Choose **editable PNG image** to save a full-resolution view with the same project archive embedded in a private PNG chunk. It opens as a normal PNG in image viewers; use **open project** in Morphaic to recover the editable sources and controls. This is generally larger than `.morphaic`, and other image editors may discard the embedded data when saving it.
+
+**Edit from settings text** accepts exported Morphaic settings JSON or a partial object such as `{"exposure":0.5,"saturation":0.8}`. **Use current settings** fills the editor with the current recipe. Apply edits to the current sources; malformed or unknown fields leave the image unchanged, and successful edits support Undo. This field accepts settings data, not natural-language prompts.
+
+The desktop window has no visible title bar. Hover at the upper edge to reveal its drag grip; double-click that area to maximize or restore. Draw, grid, and clear use the same 28-pixel button dimensions as the upper-right edit controls.

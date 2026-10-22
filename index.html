@@ -211,13 +211,13 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
 <link rel="icon" type="image/x-icon" href="/favicon.ico">
 </head>
 <body>
-<div id="desktopTitlebar" class="pywebview-drag-region" title="Drag to move; double-click to maximize or restore" hidden>morphaic</div>
+<div id="desktopTitlebar" class="pywebview-drag-region" tabindex="0" aria-label="Move window" title="Drag to move; double-click to maximize or restore" hidden></div>
 <main id="stage">
   <div id="frame" hidden><img id="view" alt="collage preview"><canvas id="ink" aria-label="drawing layer"></canvas></div>
   <div id="tools" hidden>
-    <button class="tgl" id="inkbtn" title="sketch on the preview: sections drift toward your lines (strength: drawing pull)">✎ draw</button>
-    <button class="tgl" id="gridbtn" title="show the guide grid; sections settle one per cell (strength: grid pull)">▦ grid</button>
-    <button id="inkclear" title="erase your drawing">clear</button>
+    <button class="tgl" id="inkbtn" aria-label="draw" title="sketch on the preview: sections drift toward your lines (strength: drawing pull)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 12-12 4 4L8 20H4Z M13 7l4 4"/></svg></button>
+    <button class="tgl" id="gridbtn" aria-label="grid" title="show the guide grid; sections settle one per cell (strength: grid pull)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4Z M4 10h16M4 15h16M10 4v16M15 4v16"/></svg></button>
+    <button id="inkclear" aria-label="clear drawing" title="erase your drawing"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 14 9-10 7 7-9 10H8Z M9 9l7 7M11 21h10"/></svg></button>
   </div>
   <div id="empty">drop images or pdfs<br><button id="open">or choose files</button></div>
   <div id="toast" role="status"></div>
@@ -285,6 +285,19 @@ button.tgl.on{color:var(--fg);box-shadow:0 1px 0 var(--fg)}
   <div id="settingsPanel" hidden>
   <section>
     <div class="row export-topline"><input id="exportfolder" aria-label="export folder" placeholder="Downloads"><button id="exportbrowse" aria-label="choose export folder" title="Choose export folder"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7V5h6l2 2h10v12H3Z"/></svg></button><button id="closeSettings">done</button></div>
+    <details id="projectSettings" open><summary>projects</summary>
+      <div class="row"><label for="projectKind" class="grow">save as</label><select id="projectKind"><option value="project">.morphaic project (recommended)</option><option value="png">editable PNG image</option></select></div>
+      <p class="note">Projects bundle the original files and all edits without reducing image quality. Editable PNG includes a full-resolution image plus the same project data and is usually larger.</p>
+      <div class="row"><button id="projectSave">save project</button><button id="projectOpen">open project</button></div>
+      <input id="projectFile" type="file" accept=".morphaic,.png" hidden>
+      <p id="projectStatus" class="note" role="status" aria-live="polite">Save to your export folder; reopen to continue editing.</p>
+    </details>
+    <details id="settingsTextPanel"><summary>edit from settings text</summary>
+      <p class="note">Paste Morphaic settings JSON or a partial edit such as {"exposure":0.5}. Changes apply to the current images.</p>
+      <textarea id="settingsText" rows="7" aria-label="editable settings text" spellcheck="false" placeholder='{"exposure":0.5}'></textarea>
+      <div class="row"><button id="settingsTextCurrent">use current settings</button><button id="settingsTextApply">apply text</button></div>
+      <p id="settingsTextStatus" class="note" role="status" aria-live="polite"></p>
+    </details>
     <div class="row"><span class="grow">exports</span><div class="seg" id="exportMode"><button data-mode="2d" class="on">2D</button><button data-mode="3d">3D</button></div></div>
     <div id="output2d">
     <div class="row"><span class="grow">size</span><input id="ow" type="number" step="any" aria-label="output width"><span>×</span><input id="oh" type="number" step="any" aria-label="output height"><span id="ou"></span></div>
@@ -425,7 +438,9 @@ function editSnapshot() {
       unit: st.unit, seed: st.seed, grid: st.grid, map: copy(st.map), inkOn: $('#inkbtn').classList.contains('on')},
     lines: $('#lines').checked,
     files: copy(st.files),
-    strokes: copy(strokes), cpts: copy(cpts)
+    strokes: copy(strokes), cpts: copy(cpts),
+    template: st.template ? copy(st.template) : null,
+    view: window.canvasView ? copy(canvasView) : null
   };
 }
 function historyButtons() {
@@ -468,7 +483,9 @@ function restoreEdit(s) {
   $('#inkbtn').classList.toggle('on', s.settings.inkOn); ink.classList.toggle('on', s.settings.inkOn);
   $('#empty').hidden = st.files.length > 0; $('#frame').hidden = $('#tools').hidden = !st.files.length;
   if (window.effectsSync) effectsSync();
-  tools(); files(); info(); outUI(); inkRedraw(); curveSet(false); historyButtons();
+  if (window.templateRestore) templateRestore(s.template);
+  if (window.canvasView && s.view) { Object.assign(canvasView,s.view); canvasViewApply(); }
+  tools(); files(); info(); outUI(); inkRedraw(); curveSet(false,true); historyButtons();
 }
 function undo() {
   finishHistory(); if (!undoStack.length) return;
@@ -882,9 +899,9 @@ function curveFn(pts) {   // Fritsch-Carlson monotone cubic: never overshoots be
     return Math.min(1, Math.max(0, (2 * t3 - 3 * t2 + 1) * pts[i][1] + (t3 - 2 * t2 + t) * h * m[i] + (-2 * t3 + 3 * t2) * pts[i + 1][1] + (t3 - t2) * h * m[i + 1]));
   };
 }
-function curveSet(fast) {
+function curveSet(fast, preserve = false) {
   const f = curveFn(cpts), s = cv.width, css = getComputedStyle(document.documentElement);
-  P.curve = Array.from({length: 256}, (_, v) => Math.round(f(v / 255) * 255));
+  if (!preserve) P.curve = Array.from({length: 256}, (_, v) => Math.round(f(v / 255) * 255));
   cx.clearRect(0, 0, s, s); cx.lineWidth = 1; cx.strokeStyle = css.getPropertyValue('--line');
   for (let i = 1; i < 4; i++) { cx.beginPath(); cx.moveTo(i * s / 4, 0); cx.lineTo(i * s / 4, s); cx.moveTo(0, i * s / 4); cx.lineTo(s, i * s / 4); cx.stroke(); }
   cx.lineWidth = 3; cx.strokeStyle = cx.fillStyle = css.getPropertyValue('--fg').trim();
@@ -941,6 +958,7 @@ info(); outUI(); curveSet(false);
 <script src="/canvas.js"></script>
 <script src="/templates.js"></script>
 <script src="/color-tools.js"></script>
+<script src="/projects.js"></script>
 </body>
 </html>
 

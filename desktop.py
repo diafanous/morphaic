@@ -100,7 +100,7 @@ def run_gui_smoke_test(url: str, webview) -> None:
         try:
             title = window.evaluate_js("document.title")
             has_controls = window.evaluate_js(
-                "['open', 'pick', 'go', 'unit', 'animpreview', 'node_end_size', 'exportfolder', 'resetAll', 'canvasMenu', 'gradientStops', 'grainImport', 'toneEditor', 'triptych_file', 'm2so'].every(id => document.getElementById(id))"
+                "['open', 'pick', 'go', 'unit', 'animpreview', 'node_end_size', 'exportfolder', 'resetAll', 'canvasMenu', 'gradientStops', 'grainImport', 'toneEditor', 'triptych_file', 'm2so', 'projectSave', 'projectOpen', 'settingsTextApply'].every(id => document.getElementById(id))"
             )
             if str(title).strip().lower() != "morphaic" or not has_controls:
                 raise RuntimeError("desktop smoke test loaded an unexpected page")
@@ -204,6 +204,13 @@ def verify_packaged_formats():
     data,name=collage.export({**gradients,'triptych_file':'pdf'},specs,store,'triptych')
     if name!='collage-triptych.pdf' or not data.startswith(b'%PDF'):
         raise RuntimeError('packaged triptych PDF export produced an unexpected file')
+    import projects
+    request = dict(p=raw,sources=specs,snapshot=dict(P=raw,settings={},files=[dict(id='smoke',w=1,page=1)],strokes=[],cpts=[[0,0],[1,1]],lines=False))
+    for kind in ('project','png'):
+        data,_ = projects.save(request,store,kind)
+        restored = projects.load(data,{})
+        if len(restored['snapshot']['files']) != 1:
+            raise RuntimeError('packaged project roundtrip failed')
     luminosity.export(raw,specs,store,{**relief,'width_mm':1,'height_mm':1,'spacing_mm':.01},'stl')
     luminosity.export(raw,specs,store,{**relief,'width_mm':100,'height_mm':75,'spacing_mm':5,'cleat':True},'3dm')
 
